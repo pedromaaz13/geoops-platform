@@ -11,6 +11,30 @@ Tras `GEO-UI-001`, la vista se presenta como pantalla GIS fija: no hay scroll
 global, el mapa ocupa el área central con basemap visible y los controles viven
 en paneles/dock compactos dentro del viewport.
 
+Tras `GEO-UI-002`, la consola se reconstruye como pantalla operacional
+map-first:
+
+- topbar con eventos, activos, alertas, fuentes degradadas, edad del dato y edad
+  del pipeline;
+- banner de degradación/demo;
+- rail lateral;
+- panel contextual con búsqueda local, resumen, filtros, salud de fuentes,
+  capas, mapas base, activos y alertas;
+- mapa persistente con `setData`, capas de eventos, incertidumbre, activos e
+  impactos, y overlay de fallback con coordenadas reales para evitar pantalla en
+  blanco si WebGL o tiles fallan;
+- lista de eventos visibles en viewport;
+- ficha flotante con pestañas `Resumen`, `Evidencias`, `Evolución`, `Impactos`
+  y `Fuentes`;
+- URL sincronizada para selección, filtros principales, ventana temporal y
+  capas;
+- layout móvil sin scroll global y con mapa visible.
+
+Limitaciones vivas: el buscador no incorpora todavía un índice IGN/poblaciones
+equivalente al visor original, los filtros de sensor/confianza/origen no se
+muestran hasta estabilizar contrato y la suite de pruebas sigue siendo más
+pequeña que la del visor heredado.
+
 ---
 
 La consola operacional se inspira en el patrón de Disaster Ninja: mapa central,
@@ -113,6 +137,10 @@ permissions
 ```
 
 Añadir una capa no debe requerir modificar múltiples paneles.
+
+Estado actual: existe un registry inicial en `apps/web/src/registries/layers.ts`
+con eventos, incertidumbre, activos e impactos. Las capas futuras aparecen
+documentadas como preparadas, no como datos existentes.
 
 ## 6. Diseño semántico
 

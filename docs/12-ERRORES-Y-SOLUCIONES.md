@@ -37,6 +37,15 @@ CSS inválido o una capa MapLibre no montada pueden pasar desapercibidos.
 
 **Regla:** probar estilos calculados, posición y presencia real de capas.
 
+### Un mapa "operativo" puede verse vacío
+
+MapLibre puede inicializar sin excepción mientras los tiles o WebGL no pintan
+como se espera en una captura o navegador concreto.
+
+**Regla:** el estado del mapa no basta; debe existir evidencia visual de eventos
+y activos. En `GEO-UI-002` se añade un overlay de fallback con coordenadas reales
+para que el usuario no vea una superficie muda si falla el render principal.
+
 ### Los E2E pueden usar un build viejo
 
 Un servidor reutilizado puede validar código anterior.

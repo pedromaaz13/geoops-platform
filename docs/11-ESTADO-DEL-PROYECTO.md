@@ -28,7 +28,8 @@ Producción: pendiente
 | GEO-008 AppShell | absorbido por MVP | consola operacional React |
 | GEO-009 Mapa/lista | absorbido por MVP | MapLibre + lista en `/operations` |
 | GEO-010 Ficha | absorbido por MVP | detalle con observaciones, impactos y procedencia |
-| GEO-011 Capas | no iniciado | capa wildfire/eventos y activos solamente; sin registry genérico |
+| GEO-UI-002 Paridad wildfire/UI | parcial | rama `codex/geoops-wildfire-parity-and-ui-rebuild`; auditoria `docs/audits/WILDFIRE-PARITY-AUDIT.md`; capturas en `artifacts/screenshots/`; consola map-first con source health, timeline, capas, lista viewport y ficha flotante |
+| GEO-011 Capas | iniciado | registry inicial de eventos, incertidumbre, activos e impactos; sin hotspots/perimetros/viento/trafico |
 | GEO-012 CI | preparado | `make check` comparte puertas locales y CI |
 
 ## Tests
@@ -45,6 +46,10 @@ Configurados:
 Última validación local de `GEO-001`: `make check` terminado correctamente.
 Última validación local del MVP wildfire: `make check` terminado correctamente
 en la rama `codex/mvp-wildfire-vertical-slice`.
+Última validación parcial de `GEO-UI-002`: lint/typecheck Python y frontend,
+Vitest, build frontend, Playwright mockeado, PostGIS healthy, `/health`, `/ready`,
+`make demo` y pruebas de integración MVP. `make check` queda pendiente de la
+validación final de esta rama.
 
 ## Fuentes conectadas
 
@@ -57,5 +62,6 @@ Ninguno para el MVP wildfire.
 
 ## Último cambio comprobado
 
-2026-08-05: MVP wildfire validado con `make check` en la rama
-`codex/mvp-wildfire-vertical-slice`.
+2026-08-05: `GEO-UI-002` reconstruye la consola `/operations` hacia paridad
+wildfire. Estado: parcial hasta ejecutar `make check` final y resolver los
+pendientes vivos de auditoria que se consideren bloqueantes para merge.
