@@ -7,6 +7,10 @@ procedencia y latencias separadas, salud de fuentes, creación de activo puntual
 regla de proximidad, alerta interna y acknowledge. No hay todavía layer registry,
 timeline avanzada, deck.gl ni Kepler.gl.
 
+Tras `GEO-UI-001`, la vista se presenta como pantalla GIS fija: no hay scroll
+global, el mapa ocupa el área central con basemap visible y los controles viven
+en paneles/dock compactos dentro del viewport.
+
 ---
 
 La consola operacional se inspira en el patrón de Disaster Ninja: mapa central,
