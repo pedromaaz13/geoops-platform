@@ -1,0 +1,65 @@
+[project]
+name = "geoops-platform"
+version = "0.1.0"
+description = "Operational geospatial platform bootstrap."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.124.0",
+    "psycopg[binary]>=3.3.0",
+    "uvicorn>=0.38.0",
+]
+
+[project.scripts]
+geoops-api = "geoops_api.main:run"
+geoops-ingestion = "geoops_ingestion.cli:main"
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.0",
+    "mypy>=1.19.0",
+    "pytest>=9.0.0",
+    "ruff>=0.14.0",
+]
+
+[build-system]
+requires = ["setuptools>=80.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["services/api", "services/ingestion"]
+include = ["geoops_api*", "geoops_ingestion*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "I",
+    "UP",
+    "B",
+    "SIM",
+    "RUF",
+]
+ignore = [
+    "E501",
+]
+
+[tool.pytest.ini_options]
+minversion = "9.0"
+testpaths = ["tests"]
+pythonpath = ["services/api", "services/ingestion"]
+addopts = "-q --strict-markers"
+markers = [
+    "integration: tests that need local services such as PostGIS",
+]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["geoops_api", "geoops_ingestion"]
+explicit_package_bases = true
+mypy_path = ["services/api", "services/ingestion"]

@@ -1,0 +1,23 @@
+services:
+  db:
+    image: ${POSTGIS_IMAGE:-postgis/postgis:16-3.5-alpine}
+    platform: ${POSTGIS_PLATFORM:-linux/amd64}
+    container_name: geoops-postgis
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-geoops_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-geoops}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-geoops}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - geoops_postgis_data:/var/lib/postgresql/data
+      - ./scripts/db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+volumes:
+  geoops_postgis_data:
