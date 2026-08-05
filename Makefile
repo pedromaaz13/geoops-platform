@@ -38,7 +38,7 @@ wait-db: docker-check
 
 preflight-dev-ports:
 	@api_port=$${GEOOPS_API_PORT:-8000}; \
-	if command -v lsof >/dev/null && lsof -ti tcp:$$api_port >/dev/null 2>&1; then \
+	if command -v lsof >/dev/null && lsof -tiTCP:$$api_port -sTCP:LISTEN >/dev/null 2>&1; then \
 		if curl -fsS "http://127.0.0.1:$$api_port/health" 2>/dev/null | grep -q '"service":"geoops-api"'; then \
 			echo "GeoOps API is already listening on $$api_port. Stop the existing dev server before running make dev again."; \
 			exit 1; \
