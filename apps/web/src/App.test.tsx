@@ -118,6 +118,9 @@ describe('App', () => {
     expect(screen.getByText(/Edad dato/i)).toBeTruthy();
     expect(screen.getAllByText(/Pipeline/i).length).toBeGreaterThan(0);
     expect(screen.getByRole('navigation', { name: /Navegacion GeoOps/i })).toBeTruthy();
+    expect(screen.getByText(/Selecciona un evento/i)).toBeTruthy();
+    expect(screen.queryByRole('tab', { name: /Evidencias/i })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Incendio cerca de Eslida/i }));
     expect(screen.getAllByText(/112cv/i).length).toBeGreaterThan(0);
   });
 
@@ -127,13 +130,27 @@ describe('App', () => {
     render(<AppProviders><App /></AppProviders>);
 
     await waitFor(() => expect(screen.getAllByText('Incendio cerca de Eslida').length).toBeGreaterThan(0));
-    fireEvent.click(screen.getAllByRole('button', { name: 'Fuentes' })[0]);
+    fireEvent.click(screen.getByRole('button', { name: /Incendio cerca de Eslida/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Fuentes' }));
     expect(screen.getByText(/Salud de fuentes/i)).toBeTruthy();
-    fireEvent.click(screen.getAllByRole('button', { name: 'Operaciones' })[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Operaciones' }));
     fireEvent.click(screen.getByRole('tab', { name: /Evidencias/i }));
 
     await waitFor(() => expect(screen.getByText(/observed_at/i)).toBeTruthy());
     expect(window.location.search).toContain('tab=evidence');
+  });
+
+  it('opens and closes event detail only after explicit selection', async () => {
+    mockFetch();
+
+    render(<AppProviders><App /></AppProviders>);
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /Incendio cerca de Eslida/i })).toBeTruthy());
+    expect(screen.queryByLabelText(/Ficha operacional/i)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Incendio cerca de Eslida/i }));
+    await waitFor(() => expect(screen.getByLabelText(/Ficha operacional/i)).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: /Cerrar ficha/i }));
+    expect(screen.queryByLabelText(/Ficha operacional/i)).toBeNull();
   });
 
   it('collapses the rail and exposes accessible tooltips', async () => {

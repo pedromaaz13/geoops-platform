@@ -88,7 +88,7 @@ dl {
 
 .global-topbar {
   display: grid;
-  grid-template-columns: 205px minmax(390px, 430px) minmax(420px, 1fr) 150px;
+  grid-template-columns: 205px minmax(210px, 0.45fr) minmax(520px, 1fr) 150px;
   align-items: center;
   gap: 12px;
   border-bottom: 1px solid var(--line);
@@ -110,31 +110,28 @@ dl {
   letter-spacing: 0;
 }
 
-.workspace-tabs {
-  display: flex;
-  gap: 6px;
+.mission-strip {
+  display: grid;
+  gap: 2px;
   min-width: 0;
+  border-left: 1px solid rgba(76, 155, 255, 0.32);
+  padding-left: 12px;
 }
 
-.workspace-tab {
+.mission-strip strong {
   overflow: hidden;
-  border: 1px solid transparent;
-  border-bottom-color: var(--line-soft);
-  border-radius: var(--radius-sm);
-  padding: 6px 8px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 0.72rem;
-  font-weight: 800;
+  color: #dcecff;
+  font-size: 0.78rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.workspace-tab:hover,
-.workspace-tab.active {
-  border-color: rgba(76, 155, 255, 0.65);
-  background: rgba(18, 50, 82, 0.58);
-  color: #dcecff;
+.mission-strip span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.64rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .metric-strip,
@@ -238,7 +235,7 @@ dl {
 .operations-grid {
   --rail-width: 196px;
   display: grid;
-  grid-template-columns: var(--rail-width) 340px minmax(0, 1fr) 330px;
+  grid-template-columns: var(--rail-width) minmax(0, 1fr) minmax(300px, 340px);
   min-width: 0;
   min-height: 0;
   overflow: hidden;
@@ -349,6 +346,54 @@ dl {
 .navigation-rail.expanded .rail-collapse {
   justify-content: flex-start;
   padding-inline: 10px;
+}
+
+.workspace-drawer {
+  position: absolute;
+  z-index: 30;
+  left: 16px;
+  top: 58px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(360px, calc(100% - 410px));
+  max-height: calc(100% - 150px);
+  min-width: 300px;
+  overflow: hidden;
+  border: 1px solid rgba(38, 59, 80, 0.92);
+  border-radius: var(--radius-md);
+  background: rgba(9, 19, 31, 0.96);
+  box-shadow: var(--shadow-panel);
+  padding: 8px;
+}
+
+.drawer-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 30px;
+  padding-inline: 4px;
+  color: var(--ink);
+  font-size: 0.78rem;
+}
+
+.drawer-title button,
+.detail-title button {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgba(38, 59, 80, 0.8);
+  border-radius: var(--radius-sm);
+  background: rgba(7, 20, 33, 0.84);
+  color: var(--muted);
+}
+
+.drawer-title button:hover,
+.detail-title button:hover {
+  border-color: rgba(76, 155, 255, 0.55);
+  color: var(--ink);
 }
 
 .context-panel {
@@ -730,10 +775,53 @@ dl {
     linear-gradient(180deg, #06101a 0%, #030913 100%);
 }
 
+.map-toolbar {
+  position: absolute;
+  left: 16px;
+  top: 14px;
+  z-index: 22;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.map-toolbar button {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid rgba(38, 59, 80, 0.86);
+  border-radius: var(--radius-sm);
+  padding: 0 10px;
+  background: rgba(7, 16, 26, 0.86);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.map-toolbar button:hover,
+.map-toolbar button.active {
+  border-color: rgba(76, 155, 255, 0.62);
+  background: rgba(18, 50, 82, 0.88);
+  color: #dcecff;
+}
+
+.map-toolbar .workspace-pill {
+  border-style: dashed;
+}
+
 .map-workspace,
 .map-canvas {
   position: absolute;
   inset: 0;
+}
+
+.map-canvas {
+  z-index: 0;
+}
+
+.map-workspace.ready .fallback-map-grid {
+  display: none;
 }
 
 .fallback-map-grid,
@@ -744,7 +832,7 @@ dl {
 }
 
 .fallback-map-grid {
-  z-index: 2;
+  z-index: 1;
   background:
     linear-gradient(rgba(76, 155, 255, 0.045) 1px, transparent 1px),
     linear-gradient(90deg, rgba(76, 155, 255, 0.045) 1px, transparent 1px),
@@ -754,7 +842,7 @@ dl {
 }
 
 .fallback-markers {
-  z-index: 6;
+  z-index: 4;
 }
 
 .fallback-event,
@@ -791,8 +879,8 @@ dl {
 
 .map-status {
   position: absolute;
-  left: 14px;
-  top: 12px;
+  left: 16px;
+  top: 54px;
   z-index: 10;
   border: 1px solid rgba(38, 59, 80, 0.75);
   border-radius: var(--radius-sm);
@@ -902,7 +990,7 @@ dl {
   z-index: 12;
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
-  width: min(390px, calc(100% - 40px));
+  width: min(430px, calc(100% - 40px));
   max-height: calc(100% - 100px);
   border: 1px solid rgba(38, 59, 80, 0.9);
   border-radius: var(--radius-md);
@@ -912,15 +1000,11 @@ dl {
   overflow: hidden;
 }
 
-.floating-detail.empty {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  padding: 12px;
-}
-
 .detail-title {
-  display: block;
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
   margin: 0;
   border-bottom: 1px solid var(--line);
   padding: 11px 12px;
@@ -929,6 +1013,17 @@ dl {
 .detail-title h2 {
   margin-top: 3px;
   font-size: 1rem;
+}
+
+.detail-title div {
+  min-width: 0;
+}
+
+.detail-title h2 {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .detail-tabs {
@@ -942,7 +1037,7 @@ dl {
 .detail-tabs button {
   overflow: hidden;
   padding: 0 5px;
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -982,6 +1077,27 @@ dl {
   min-width: 0;
   overflow: hidden;
   border-left: 1px solid var(--line);
+}
+
+.map-selection-hint {
+  position: absolute;
+  top: 58px;
+  right: 18px;
+  z-index: 12;
+  display: grid;
+  gap: 5px;
+  width: min(340px, calc(100% - 40px));
+  border: 1px solid rgba(38, 59, 80, 0.82);
+  border-radius: var(--radius-md);
+  padding: 11px 12px;
+  background: rgba(7, 16, 26, 0.86);
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.map-selection-hint strong {
+  color: var(--ink);
+  font-size: 0.88rem;
 }
 
 .panel-title-row {
@@ -1116,11 +1232,7 @@ dl {
 
 @media (max-width: 1320px) {
   .global-topbar {
-    grid-template-columns: 205px minmax(350px, 390px) minmax(390px, 1fr) 150px;
-  }
-
-  .workspace-tab {
-    font-size: 0.68rem;
+    grid-template-columns: 190px minmax(160px, 0.3fr) minmax(460px, 1fr) 140px;
   }
 
   .metric small {
@@ -1130,10 +1242,10 @@ dl {
 
 @media (max-width: 1180px) {
   .global-topbar {
-    grid-template-columns: 190px minmax(0, 1fr) 150px;
+    grid-template-columns: 180px minmax(0, 1fr) 140px;
   }
 
-  .workspace-tabs {
+  .mission-strip {
     display: none;
   }
 
@@ -1143,11 +1255,16 @@ dl {
 
   .operations-grid {
     --rail-width: 52px;
-    grid-template-columns: var(--rail-width) 300px minmax(0, 1fr);
+    grid-template-columns: var(--rail-width) minmax(0, 1fr);
   }
 
   .event-list-panel {
     display: none;
+  }
+
+  .workspace-drawer {
+    width: min(360px, calc(100% - 36px));
+    max-height: calc(100% - 130px);
   }
 }
 
@@ -1189,11 +1306,12 @@ dl {
     padding: 0;
   }
 
+  .workspace-drawer,
   .context-panel {
     position: absolute;
     z-index: 30;
-    left: var(--rail-width);
-    top: 104px;
+    left: 8px;
+    top: 54px;
     bottom: auto;
     width: min(328px, calc(100vw - 48px));
     max-height: 42dvh;
@@ -1211,7 +1329,7 @@ dl {
     bottom: 54px;
     left: 8px;
     width: auto;
-    max-height: 28%;
+    max-height: 42%;
   }
 
   .legend-panel {
@@ -1223,5 +1341,18 @@ dl {
     right: 8px;
     bottom: 8px;
     overflow: auto;
+  }
+
+  .map-toolbar {
+    left: 8px;
+    top: 8px;
+  }
+
+  .map-toolbar button span {
+    display: none;
+  }
+
+  .map-selection-hint {
+    display: none;
   }
 }

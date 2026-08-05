@@ -228,6 +228,17 @@ export function OperationsMap({
         map.addControl(new maplibregl.NavigationControl({ visualizePitch: false }), 'top-right');
         map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
         map.on('load', () => {
+          setSourceData(map, 'events', eventData);
+          setSourceData(map, 'assets', assetData);
+          setSourceData(map, 'impacts', impactData);
+          for (const id of ['dark', 'light', 'satellite'] as const) {
+            map.setLayoutProperty(`basemap-${id}`, 'visibility', id === basemap ? 'visible' : 'none');
+          }
+          for (const definition of layerRegistry) {
+            if (map.getLayer(definition.id)) {
+              map.setLayoutProperty(definition.id, 'visibility', visibleLayers[definition.id] ? 'visible' : 'none');
+            }
+          }
           setMapStatus('Mapa operativo');
           if (events.length > 1) {
             const bounds = new maplibregl.LngLatBounds(events[0].geometry.coordinates, events[0].geometry.coordinates);
@@ -295,8 +306,10 @@ export function OperationsMap({
     mapRef.current.flyTo({ center: focusCoordinates, zoom: Math.max(mapRef.current.getZoom(), 8), essential: true });
   }, [focusCoordinates]);
 
+  const isMapReady = mapStatus === 'Mapa operativo';
+
   return (
-    <section className="map-workspace" aria-label="Mapa operacional">
+    <section className={isMapReady ? 'map-workspace ready' : 'map-workspace'} aria-label="Mapa operacional">
       <div ref={containerRef} className="map-canvas" role="img" aria-label={mapStatus} />
       <div className="fallback-map-grid" aria-hidden="true" />
       <div className="fallback-markers" aria-hidden="true">

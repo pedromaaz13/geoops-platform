@@ -172,6 +172,13 @@ test('operations wildfire demo flow', async ({ page }) => {
 
   await page.goto('/operations');
   await expect(page.getByText('Incendio cerca de Eslida').first()).toBeVisible();
+  await expect(page.getByLabel('Ficha operacional')).toBeHidden();
+  await expect(page.getByText(/Selecciona un evento/)).toBeVisible();
+  await page.getByRole('button', { name: /Incendio cerca de Eslida/ }).click();
+  await expect(page.getByLabel('Ficha operacional')).toBeVisible();
+  await page.getByRole('button', { name: 'Cerrar ficha' }).click();
+  await expect(page.getByLabel('Ficha operacional')).toBeHidden();
+  await page.getByRole('button', { name: /Incendio cerca de Eslida/ }).click();
   await expect(page.getByText(/Datos demo/)).toBeVisible();
   await expect(page.getByText(/Edad dato/)).toBeVisible();
   const rail = page.getByRole('navigation', { name: /Navegacion GeoOps/ });
@@ -205,6 +212,8 @@ test('mobile operations shell keeps map visible without global scroll', async ({
   await page.goto('/operations');
 
   await expect(page.getByLabel('Mapa operacional')).toBeVisible();
+  await page.getByRole('button', { name: 'Buscar' }).click();
+  await page.getByLabel('Buscar evento o activo').fill('Eslida');
   await expect(page.getByText('Incendio cerca de Eslida').first()).toBeVisible();
   const overflowY = await page.evaluate(() => window.getComputedStyle(document.body).overflowY);
   expect(overflowY).toBe('hidden');

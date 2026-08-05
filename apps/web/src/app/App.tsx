@@ -13,6 +13,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Search,
+  X,
   Settings,
   ShieldAlert,
   SlidersHorizontal,
@@ -40,6 +41,7 @@ import type {
 type ActivePanel = 'home' | 'overview' | 'sources' | 'assets' | 'alerts' | 'layers' | 'analysis' | 'settings';
 type DetailTab = 'summary' | 'evidence' | 'evolution' | 'impacts' | 'sources';
 type Basemap = 'dark' | 'light' | 'satellite';
+type ToolPanel = 'search' | 'filters' | 'layers' | null;
 
 const emptyEvents: EventFeature[] = [];
 const emptySources: SourceHealthDto[] = [];
@@ -195,6 +197,7 @@ export function App() {
   const [basemap, setBasemap] = useState<Basemap>('satellite');
   const [activePanel, setActivePanel] = useState<ActivePanel>(initialActivePanel);
   const [detailTab, setDetailTab] = useState<DetailTab>(initialDetailTab);
+  const [toolPanel, setToolPanel] = useState<ToolPanel>(null);
   const [railCollapsed, setRailCollapsed] = useState<boolean>(initialRailCollapsed);
   const [search, setSearch] = useState('');
   const [viewportBounds, setViewportBounds] = useState<[number, number, number, number] | null>(null);
@@ -206,7 +209,9 @@ export function App() {
   const assets = data.assets.data ?? emptyAssets;
   const alerts = data.alerts.data ?? emptyAlerts;
   const openAlerts = alerts.filter((alert) => alert.status === 'open');
-  const selectedEvent = data.detail.data ?? events.find((event) => event.properties.id === selectedEventId) ?? events[0] ?? null;
+  const selectedEvent = selectedEventId
+    ? data.detail.data ?? events.find((event) => event.properties.id === selectedEventId) ?? null
+    : null;
   const selectedImpacts = data.impacts.data ?? emptyImpacts;
   const visibleEvents = useMemo(() => events.filter((event) => pointInside(viewportBounds, event)), [events, viewportBounds]);
   const degradation = globalDegradation(data.summary.data, sources);
@@ -216,12 +221,6 @@ export function App() {
   useEffect(() => {
     window.localStorage.setItem('geoops-rail-collapsed', railCollapsed ? '1' : '0');
   }, [railCollapsed]);
-
-  useEffect(() => {
-    if (selectedEventId || !events[0]) return;
-    const timeout = window.setTimeout(() => setSelectedEventId(events[0].properties.id), 0);
-    return () => window.clearTimeout(timeout);
-  }, [events, selectedEventId]);
 
   useEffect(() => {
     if (!selectedEvent) return;
@@ -280,8 +279,6 @@ export function App() {
         sources={sources}
         openAlerts={openAlerts.length}
         loading={data.busy}
-        activePanel={activePanel}
-        onPanelChange={setActivePanel}
       />
       {degradation && <DegradationBanner title={degradation.title} message={degradation.message} tone={degradation.tone} />}
       {data.error && <DegradationBanner title="API no accesible" message={friendlyLoadError(data.error)} tone="bad" />}
@@ -291,33 +288,17 @@ export function App() {
           activePanel={activePanel}
           collapsed={railCollapsed}
           onCollapsedChange={setRailCollapsed}
-          onSelect={setActivePanel}
-          openAlerts={openAlerts.length}
-        />
-        <ContextPanel
-          activePanel={activePanel}
-          search={search}
-          searchResults={searchResults}
-          sources={sources}
-          summary={data.summary.data}
-          filters={filters}
-          visibleLayers={visibleLayers}
-          basemap={basemap}
-          assets={assets}
-          alerts={alerts}
-          onSearch={setSearch}
-          onSelectSearchResult={(result) => {
-            setFocusCoordinates(result.coordinates);
-            if (result.kind === 'event') setSelectedEventId(result.id);
+          onSelect={(panel) => {
+            setActivePanel(panel);
+            if (panel === 'overview') {
+              setToolPanel(null);
+            } else if (panel === 'layers') {
+              setToolPanel('layers');
+            } else {
+              setToolPanel(null);
+            }
           }}
-          onFiltersChange={setFilters}
-          onLayersChange={setVisibleLayers}
-          onBasemapChange={setBasemap}
-          onCreateAsset={handleCreateAsset}
-          onDeleteAsset={(assetId) => void data.actions.deleteAsset(assetId)}
-          onCreateRule={handleCreateRule}
-          onAcknowledgeAlert={(alertId) => void data.actions.acknowledgeAlert(alertId)}
-          onResetFilters={() => setFilters(defaultFilters)}
+          openAlerts={openAlerts.length}
         />
 
         <section className="map-stage">
@@ -332,6 +313,42 @@ export function App() {
             onSelectEvent={setSelectedEventId}
             onBoundsChange={setViewportBounds}
           />
+          <MapToolbar
+            activeTool={toolPanel}
+            activePanel={activePanel}
+            onActivePanelChange={setActivePanel}
+            onToolChange={setToolPanel}
+          />
+          <WorkspaceDrawer
+            activePanel={activePanel}
+            toolPanel={toolPanel}
+            search={search}
+            searchResults={searchResults}
+            sources={sources}
+            summary={data.summary.data}
+            filters={filters}
+            visibleLayers={visibleLayers}
+            basemap={basemap}
+            assets={assets}
+            alerts={alerts}
+            onClose={() => {
+              setToolPanel(null);
+              if (activePanel !== 'overview') setActivePanel('overview');
+            }}
+            onSearch={setSearch}
+            onSelectSearchResult={(result) => {
+              setFocusCoordinates(result.coordinates);
+              if (result.kind === 'event') setSelectedEventId(result.id);
+            }}
+            onFiltersChange={setFilters}
+            onLayersChange={setVisibleLayers}
+            onBasemapChange={setBasemap}
+            onCreateAsset={handleCreateAsset}
+            onDeleteAsset={(assetId) => void data.actions.deleteAsset(assetId)}
+            onCreateRule={handleCreateRule}
+            onAcknowledgeAlert={(alertId) => void data.actions.acknowledgeAlert(alertId)}
+            onResetFilters={() => setFilters(defaultFilters)}
+          />
           <TimelineControl filters={filters} onFiltersChange={setFilters} summary={data.summary.data} />
           <LegendPanel visibleLayers={visibleLayers} />
           <FloatingDetail
@@ -342,7 +359,12 @@ export function App() {
             sources={sources}
             tab={detailTab}
             onTabChange={setDetailTab}
+            onClose={() => {
+              setSelectedEventId(null);
+              setDetailTab('summary');
+            }}
           />
+          {!selectedEvent && <MapSelectionHint eventsCount={events.length} />}
         </section>
 
         <EventListPanel
@@ -371,42 +393,22 @@ function GlobalTopBar({
   sources,
   openAlerts,
   loading,
-  activePanel,
-  onPanelChange,
 }: {
   summary: OperationsSummaryDto | undefined;
   sources: SourceHealthDto[];
   openAlerts: number;
   loading: boolean;
-  activePanel: ActivePanel;
-  onPanelChange: (panel: ActivePanel) => void;
 }) {
   const degraded = sources.filter((source) => statusClass(source.freshness_status ?? source.last_run?.status) !== 'ok').length;
-  const workspaceTabs: Array<{ id: ActivePanel; label: string }> = [
-    { id: 'overview', label: 'Operaciones' },
-    { id: 'sources', label: 'Fuentes' },
-    { id: 'assets', label: 'Activos' },
-    { id: 'alerts', label: 'Alertas' },
-    { id: 'analysis', label: 'Analisis' },
-  ];
   return (
     <header className="global-topbar">
       <div className="brand-block">
         <span className="eyebrow">GeoOps Platform</span>
         <h1>Operations</h1>
       </div>
-      <div className="workspace-tabs" aria-label="Pestanas de trabajo">
-        {workspaceTabs.map((tab) => (
-          <button
-            aria-current={activePanel === tab.id ? 'page' : undefined}
-            className={activePanel === tab.id ? 'workspace-tab active' : 'workspace-tab'}
-            key={tab.id}
-            onClick={() => onPanelChange(tab.id)}
-            type="button"
-          >
-            {tab.label}
-          </button>
-        ))}
+      <div className="mission-strip">
+        <strong>Consola operacional</strong>
+        <span>Mapa, eventos, fuentes y activos locales con procedencia declarada.</span>
       </div>
       <div className="metric-strip" aria-label="Resumen operacional">
         <Tooltip label="Eventos canonicos cargados en el resumen operacional.">
@@ -507,8 +509,53 @@ function NavigationRail({
   );
 }
 
-function ContextPanel(props: {
+function MapToolbar({
+  activeTool,
+  activePanel,
+  onActivePanelChange,
+  onToolChange,
+}: {
+  activeTool: ToolPanel;
   activePanel: ActivePanel;
+  onActivePanelChange: (panel: ActivePanel) => void;
+  onToolChange: (tool: ToolPanel) => void;
+}) {
+  const tools: Array<{ id: ToolPanel; label: string; icon: LucideIcon }> = [
+    { id: 'search', label: 'Buscar', icon: Search },
+    { id: 'filters', label: 'Filtros', icon: SlidersHorizontal },
+    { id: 'layers', label: 'Capas', icon: Layers },
+  ];
+  return (
+    <div className="map-toolbar" aria-label="Herramientas del mapa">
+      {tools.map((tool) => (
+        <Tooltip label={tool.label} key={tool.id}>
+          <button
+            aria-label={tool.label}
+            aria-pressed={activeTool === tool.id}
+            className={activeTool === tool.id ? 'active' : ''}
+            onClick={() => {
+              onActivePanelChange(tool.id === 'layers' ? 'layers' : 'overview');
+              onToolChange(activeTool === tool.id ? null : tool.id);
+            }}
+            type="button"
+          >
+            <tool.icon aria-hidden="true" size={16} />
+            <span>{tool.label}</span>
+          </button>
+        </Tooltip>
+      ))}
+      {activePanel !== 'overview' && activePanel !== 'layers' && (
+        <button className="workspace-pill" onClick={() => onActivePanelChange('overview')} type="button">
+          Volver al mapa
+        </button>
+      )}
+    </div>
+  );
+}
+
+function WorkspaceDrawer(props: {
+  activePanel: ActivePanel;
+  toolPanel: ToolPanel;
   search: string;
   searchResults: Array<{ id: string; kind: 'event' | 'asset'; label: string; coordinates: [number, number] }>;
   sources: SourceHealthDto[];
@@ -528,12 +575,38 @@ function ContextPanel(props: {
   onCreateRule: (event: React.FormEvent<HTMLFormElement>) => void;
   onAcknowledgeAlert: (alertId: string) => void;
   onResetFilters: () => void;
+  onClose: () => void;
 }) {
+  const isOpen = props.activePanel !== 'overview' || props.toolPanel !== null;
+  if (!isOpen) return null;
+  const title =
+    props.toolPanel === 'search'
+      ? 'Buscar'
+      : props.toolPanel === 'filters'
+        ? 'Filtros'
+        : props.toolPanel === 'layers'
+          ? 'Capas'
+          : props.activePanel === 'home'
+            ? 'Home'
+            : props.activePanel === 'sources'
+              ? 'Fuentes'
+              : props.activePanel === 'assets'
+                ? 'Activos'
+                : props.activePanel === 'alerts'
+                  ? 'Alertas'
+                  : props.activePanel === 'analysis'
+                    ? 'Analisis'
+                    : 'Configuracion';
   return (
-    <aside className="context-panel" aria-label="Panel contextual">
-      <SearchSection {...props} />
-      {props.activePanel === 'home' && <HomeSection summary={props.summary} sources={props.sources} alerts={props.alerts} />}
-      {props.activePanel === 'overview' && (
+    <aside className="workspace-drawer" aria-label="Panel operacional">
+      <div className="drawer-title">
+        <strong>{title}</strong>
+        <button aria-label="Cerrar panel" onClick={props.onClose} type="button">
+          <X aria-hidden="true" size={16} />
+        </button>
+      </div>
+      {props.toolPanel === 'search' && <SearchSection {...props} />}
+      {props.toolPanel === 'filters' && (
         <OverviewSection
           summary={props.summary}
           filters={props.filters}
@@ -541,8 +614,7 @@ function ContextPanel(props: {
           onResetFilters={props.onResetFilters}
         />
       )}
-      {props.activePanel === 'sources' && <SourceHealthSection sources={props.sources} />}
-      {props.activePanel === 'layers' && (
+      {(props.toolPanel === 'layers' || props.activePanel === 'layers') && (
         <LayerSection
           visibleLayers={props.visibleLayers}
           basemap={props.basemap}
@@ -550,6 +622,8 @@ function ContextPanel(props: {
           onBasemapChange={props.onBasemapChange}
         />
       )}
+      {props.activePanel === 'home' && <HomeSection summary={props.summary} sources={props.sources} alerts={props.alerts} />}
+      {props.activePanel === 'sources' && <SourceHealthSection sources={props.sources} />}
       {props.activePanel === 'assets' && (
         <AssetsSection assets={props.assets} onCreateAsset={props.onCreateAsset} onDeleteAsset={props.onDeleteAsset} />
       )}
@@ -567,7 +641,7 @@ function SearchSection({
   searchResults,
   onSearch,
   onSelectSearchResult,
-}: Pick<Parameters<typeof ContextPanel>[0], 'search' | 'searchResults' | 'onSearch' | 'onSelectSearchResult'>) {
+}: Pick<Parameters<typeof WorkspaceDrawer>[0], 'search' | 'searchResults' | 'onSearch' | 'onSelectSearchResult'>) {
   return (
     <section className="panel-section search-section">
       <div className="panel-heading">
@@ -965,6 +1039,7 @@ function FloatingDetail({
   sources,
   tab,
   onTabChange,
+  onClose,
 }: {
   event: EventFeature | null;
   observations: ObservationDto[];
@@ -973,15 +1048,9 @@ function FloatingDetail({
   sources: SourceHealthDto[];
   tab: DetailTab;
   onTabChange: (tab: DetailTab) => void;
+  onClose: () => void;
 }) {
-  if (!event) {
-    return (
-      <aside className="floating-detail empty">
-        <strong>Sin seleccion</strong>
-        <span>Selecciona un evento visible para abrir la ficha operacional.</span>
-      </aside>
-    );
-  }
+  if (!event) return null;
   const presentation = presentationFor(event.properties.type);
   const tabs: Array<{ id: DetailTab; label: string }> = [
     { id: 'summary', label: 'Resumen' },
@@ -993,8 +1062,13 @@ function FloatingDetail({
   return (
     <aside className="floating-detail" aria-label="Ficha operacional">
       <div className="detail-title">
-        <span>{presentation.label}</span>
-        <h2>{event.properties.title}</h2>
+        <div>
+          <span>{presentation.label}</span>
+          <h2>{event.properties.title}</h2>
+        </div>
+        <button aria-label="Cerrar ficha" onClick={onClose} type="button">
+          <X aria-hidden="true" size={16} />
+        </button>
       </div>
       <div className="detail-tabs" role="tablist">
         {tabs.map((item) => (
@@ -1080,6 +1154,15 @@ function FloatingDetail({
   );
 }
 
+function MapSelectionHint({ eventsCount }: { eventsCount: number }) {
+  return (
+    <aside className="map-selection-hint" aria-label="Seleccion de evento">
+      <strong>{eventsCount ? 'Selecciona un evento' : 'Sin eventos cargados'}</strong>
+      <span>{eventsCount ? 'Usa la lista visible o los marcadores para abrir la ficha operacional.' : 'Ejecuta make demo si esperabas datos locales.'}</span>
+    </aside>
+  );
+}
+
 function StatusBadge({ value }: { value: string }) {
   return <span className={`status-badge ${statusClass(value)}`}>{value}</span>;
 }
@@ -1117,7 +1200,7 @@ function EventListPanel({
         )}
         {events.map((event) => {
           const hasAlert = alerts.some((alert) => alert.event_id === event.properties.id && alert.status === 'open');
-          const hasImpact = impacts.some((impact) => impact.event_id === event.properties.id);
+          const hasImpact = (event.properties.impacts_count ?? 0) > 0 || impacts.some((impact) => impact.event_id === event.properties.id);
           return (
             <button
               className={selectedEventId === event.properties.id ? 'event-card selected' : 'event-card'}
