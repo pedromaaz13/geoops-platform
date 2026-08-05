@@ -42,6 +42,9 @@ export interface EventCollection {
 export interface EventFilters {
   status: string;
   source: string;
+  origin: string;
+  sensor: string;
+  minConfidence: string;
   timeWindow: '6h' | '24h' | '3d' | '7d';
   hasImpact: boolean;
   hasAlert: boolean;

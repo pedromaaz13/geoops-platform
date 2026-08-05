@@ -16,10 +16,11 @@ const event = {
     status_source_id: '112cv',
     severity: 'alta',
     precision_m: 375,
+    confidence: 0.78,
     last_observed_at: '2026-08-04T20:51:00Z',
     updated_at: '2026-08-05T01:00:00Z',
     sources: ['wildfire-public'],
-    attributes: {},
+    attributes: { origin: 'ambos', sensors: 'VIIRS_NOAA20_NRT' },
     valid_from: '2026-08-04T20:51:00Z',
     valid_to: null,
     created_at: '2026-08-05T01:00:00Z',
@@ -138,6 +139,25 @@ describe('App', () => {
 
     await waitFor(() => expect(screen.getByText(/observed_at/i)).toBeTruthy());
     expect(window.location.search).toContain('tab=evidence');
+  });
+
+  it('sends wildfire origin sensor and confidence filters to the API', async () => {
+    mockFetch();
+
+    render(<AppProviders><App /></AppProviders>);
+
+    await waitFor(() => expect(screen.getAllByText('Incendio cerca de Eslida').length).toBeGreaterThan(0));
+    fireEvent.click(screen.getByRole('button', { name: 'Filtros' }));
+    fireEvent.change(screen.getByLabelText('Origen wildfire'), { target: { value: 'satelite' } });
+    fireEvent.change(screen.getByLabelText('Filtrar por sensor'), { target: { value: 'VIIRS_NOAA20_NRT' } });
+    fireEvent.change(screen.getByLabelText('Confianza minima'), { target: { value: '0.7' } });
+
+    await waitFor(() => {
+      const urls = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.map(([url]) => String(url));
+      expect(urls.some((url) => url.includes('origins=satelite'))).toBe(true);
+      expect(urls.some((url) => url.includes('sensors=VIIRS_NOAA20_NRT'))).toBe(true);
+      expect(urls.some((url) => url.includes('min_confidence=0.7'))).toBe(true);
+    });
   });
 
   it('opens and closes event detail only after explicit selection', async () => {

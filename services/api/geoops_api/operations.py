@@ -8,7 +8,7 @@ from uuid import uuid4
 
 from geoalchemy2.shape import from_shape
 from shapely.geometry import Point
-from sqlalchemy import ColumnElement, and_, delete, func, select
+from sqlalchemy import ColumnElement, and_, delete, func, or_, select
 from sqlalchemy.orm import Session
 
 from geoops_api.models import (
@@ -82,6 +82,9 @@ def list_events(
     updated_after: str | None,
     status: str | None,
     sources: str | None,
+    origins: str | None,
+    sensors: str | None,
+    min_confidence: float | None,
     has_impact: bool | None,
     has_alert: bool | None,
     limit: int,
@@ -123,6 +126,25 @@ def list_events(
                 .where(Observation.source_id.in_(source_ids))
             )
         )
+    if origins:
+        origin_values = [part.strip() for part in origins.split(",") if part.strip()]
+        if origin_values:
+            filters.append(
+                or_(
+                    Event.attributes["origin"].astext.in_(origin_values),
+                    *(Event.attributes["origins"].contains([origin]) for origin in origin_values),
+                )
+            )
+    if sensors:
+        sensor_values = [part.strip() for part in sensors.split(",") if part.strip()]
+        if sensor_values:
+            filters.append(
+                or_(*(Event.attributes["sensors"].astext.ilike(f"%{sensor}%") for sensor in sensor_values))
+            )
+    if min_confidence is not None:
+        if not 0 <= min_confidence <= 1:
+            raise ValueError("min_confidence must be between 0 and 1")
+        filters.append(Event.confidence >= min_confidence)
     if has_impact is not None:
         impact_subquery = select(Impact.event_id)
         filters.append(Event.id.in_(impact_subquery) if has_impact else Event.id.not_in(impact_subquery))

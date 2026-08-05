@@ -128,6 +128,9 @@ Filtros:
 ```text
 bbox
 types
+origins
+sensors
+min_confidence
 status
 severity
 from
@@ -136,6 +139,14 @@ updated_after
 limit
 cursor
 ```
+
+Filtros wildfire:
+
+- `origins`: lista separada por comas con `satelite`, `oficial` o `ambos`.
+- `sensors`: lista separada por comas; busca coincidencia declarada en el campo `sensors`.
+- `min_confidence`: valor decimal entre `0` y `1`.
+
+Estos filtros no inventan confianza. Solo operan cuando la observacion/evento la declara.
 
 ---
 
