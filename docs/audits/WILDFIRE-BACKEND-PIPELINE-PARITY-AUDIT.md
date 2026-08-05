@@ -25,8 +25,8 @@ pipeline satelite/oficial completo.
 | Observacion vs evento | Hotspot/parte se fusionan en incidente. | `Observation` reconciliada a `Event`. | Paridad MVP | Formalizar `EventReconciliation` si aparece segundo adaptador real. |
 | Separacion temporal | `first_detected`, `last_detected`, latencia de dato y ejecucion. | `observed_at`, `published_at`, `ingested_at`, `updated_at`, edades en summary. | Paridad MVP | Anadir invariantes de tiempos invertidos. |
 | Estado sin fuente | Invariante 9 aborta si hay estado sin parte oficial. | Test MVP rechaza status sin official/source. | Parcial | Ampliar a suite de invariantes por evento/observacion. |
-| Geometria valida | Invariante bbox Espana + Canarias; aborta `(0,0)`. | Bbox API; PostGIS SRID; falta invariant suite. | Pendiente | Crear `tests/contract/test_event_invariants.py`. |
-| Precision positiva | Invariante 6 aborta precision nula/cero. | Contrato admite `precision_m`; UI muestra sin dato. | Pendiente | Validar precision por fuente/observacion antes de reconciliar. |
+| Geometria valida | Invariante bbox Espana + Canarias; aborta `(0,0)`. | `GEO-WF-002` valida Point dentro de bbox Espana+Canarias antes de ingestar. | Paridad MVP | Ampliar si futuras verticales salen de Espana. |
+| Precision positiva | Invariante 6 aborta precision nula/cero. | `GEO-WF-002` exige `position_precision_m` obligatorio y positivo en wildfire-public. | Paridad MVP | Medir precision por fuente real en tareas posteriores. |
 | Sensor/confianza/origen | `instrument`, `confidence_pct`, `origin`, `official_confirmed`, `satellite_confirmed`. | Atributos MVP existen en raw/attributes, no como filtros publicos completos. | Pendiente | Exponer filtros wildfire `origin`, `sensor`, `confidence` cuando se estabilice contrato. |
 | Falso positivo | `clean` excluye antorchas industriales y baja confianza. | No hay pipeline FIRMS real ni exclusion list. | Fuera de alcance actual | Portar solo cuando exista fuente FIRMS real/fixture. |
 | Cluster satelital | `cluster` agrupa hotspots en incendio candidato. | MVP ingiere incidentes ya agregados. | Pendiente | Tarea futura si GeoOps consume hotspots, no `incidents.geojson`. |
@@ -35,7 +35,7 @@ pipeline satelite/oficial completo.
 | Salud de fuentes | `SourceHealth` distingue descarga, dato fresco, stale, cuota, separacion medida. | `/v1/sources/health` distingue success/partial/stale/failed/disabled demo con edades basicas. | Parcial | Anadir `latest_data_at`, cuota si aplica, y stale por TTL real de fuente. |
 | Publicacion segura | `validate_or_abort` impide publicar corrupto y conserva ejecucion anterior. | API lee PostGIS; no hay snapshot publico ni guard de publicacion. | Pendiente | Definir `PublicSnapshot` cuando vuelva la publicacion estatica. |
 | Smoke de pipeline | `scripts/smoke_test.py` genera datos sinteticos y valida exclusiones. | `make demo` ingiere fixture y seed de activo/regla. | Parcial | Anadir escenario demo con muchos eventos y fuente degradada. |
-| Pruebas | Suite amplia de invariantes, fuentes, merge, export, E2E visual. | Pytest MVP + Vitest + Playwright; volumen menor. | Pendiente | Priorizar invariantes de contrato y E2E de estados degradados. |
+| Pruebas | Suite amplia de invariantes, fuentes, merge, export, E2E visual. | Pytest MVP + Vitest + Playwright; `GEO-WF-002` anade invariantes unitarios de contrato wildfire. | Parcial | Priorizar salida vacia sospechosa, stale real y E2E degradados. |
 
 ## Rutas origen consultadas
 
@@ -52,22 +52,18 @@ pipeline satelite/oficial completo.
 
 ## Tareas recomendadas
 
-1. `GEO-WF-002 · Invariantes de contrato wildfire`.
-   - Validar IDs unicos, bbox, precision positiva, tiempos coherentes,
-     estado con fuente oficial y vocabulario controlado.
-
-2. `GEO-WF-003 · Guard de salida vacia sospechosa`.
+1. `GEO-WF-003 · Guard de salida vacia sospechosa`.
    - Si una ingesta nueva trae cero eventos y la ejecucion anterior tenia
      actividad reciente, marcar fuente `failed/partial` y conservar estado.
 
-3. `GEO-WF-004 · Source health con stale real`.
+2. `GEO-WF-004 · Source health con stale real`.
    - Separar edad de descarga, edad del dato, TTL por fuente, razon stale y
      ultimo exito.
 
-4. `GEO-WF-005 · Filtros wildfire de origen/sensor/confianza`.
+3. `GEO-WF-005 · Filtros wildfire de origen/sensor/confianza`.
    - Solo si el contrato expone esos campos de forma estable.
 
-5. `GEO-WF-006 · Reconciliacion multiobservacion wildfire`.
+4. `GEO-WF-006 · Reconciliacion multiobservacion wildfire`.
    - Portar la idea de tolerancia por precision y ventana temporal cuando
      existan observaciones oficiales y satelitales separadas.
 
@@ -76,7 +72,20 @@ pipeline satelite/oficial completo.
 - La UI puede parecer mas madura que el pipeline real.
 - `incidents.geojson` ya llega agregado; no prueba limpieza FIRMS, clustering ni
   exclusion de falsos positivos.
-- La fuente demo es util para desarrollo, pero no sustituye tests con payloads
-  rotos y casos de cero sospechoso.
+- La fuente demo es util para desarrollo, pero no sustituye tests de cero
+  sospechoso ni stale real por fuente.
 - No declarar paridad wildfire completa hasta cerrar las tareas anteriores.
+
+## GEO-WF-002 cerrado
+
+Se anadio una puerta de contrato wildfire que rechaza:
+
+- IDs ausentes o duplicados;
+- `origin` incoherente con `satellite_confirmed` y `official_confirmed`;
+- geometria no `Point` o fuera del bbox operativo Espana+Canarias;
+- `position_precision_m` ausente, cero o negativo;
+- `first_detected` posterior a `last_detected`;
+- `status` fuera de vocabulario;
+- `status` sin `official_confirmed`, `confirmed_by` y `status_origen=oficial`;
+- `n_hotspots=0` cuando el origen no es oficial.
 
