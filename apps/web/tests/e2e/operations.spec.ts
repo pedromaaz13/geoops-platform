@@ -84,8 +84,8 @@ test('operations wildfire demo flow', async ({ page }) => {
   await assetForm.getByPlaceholder('Longitud').fill('-0.37');
   await assetForm.getByPlaceholder('Latitud').fill('39.9');
   await assetForm.getByRole('button', { name: 'Crear activo' }).click();
-  await expect(assetForm.locator('.asset-row').getByText('Camping demo')).toBeVisible();
-  const ruleForm = page.locator('form').filter({ hasText: 'Regla de proximidad' });
+  await expect(assetForm.locator('.asset-chip').getByText('Camping demo')).toBeVisible();
+  const ruleForm = page.locator('form').filter({ hasText: 'Regla' });
   await ruleForm.locator('select[name="asset_id"]').selectOption('asset-1');
   await ruleForm.getByRole('button', { name: 'Crear regla' }).click();
   await expect(page.getByText(/1400 m/)).toBeVisible();

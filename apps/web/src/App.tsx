@@ -46,6 +46,10 @@ interface MapPanelProps {
   onSelect: (eventId: string) => void;
 }
 
+function featureCollection(features: EventFeature[]) {
+  return { type: 'FeatureCollection' as const, features };
+}
+
 function MapPanel({ events, assets, selectedEventId, onSelect }: MapPanelProps) {
   const [mapStatus, setMapStatus] = useState(
     import.meta.env.MODE === 'test' ? 'Mapa omitido en tests unitarios' : 'Inicializando mapa',
@@ -59,6 +63,7 @@ function MapPanel({ events, assets, selectedEventId, onSelect }: MapPanelProps) 
 
     let disposed = false;
     let map: import('maplibre-gl').Map | null = null;
+    let resizeObserver: ResizeObserver | null = null;
 
     async function loadMap() {
       try {
@@ -69,28 +74,44 @@ function MapPanel({ events, assets, selectedEventId, onSelect }: MapPanelProps) 
           container: mapContainerId,
           style: {
             version: 8,
-            sources: {},
-            layers: [{ id: 'background', type: 'background', paint: { 'background-color': '#e8efec' } }],
+            sources: {
+              osm: {
+                type: 'raster',
+                tiles: ['https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png'],
+                tileSize: 256,
+                attribution: '© OpenStreetMap contributors © CARTO',
+              },
+            },
+            layers: [
+              { id: 'background', type: 'background', paint: { 'background-color': '#dce7e2' } },
+              { id: 'osm', type: 'raster', source: 'osm', paint: { 'raster-opacity': 0.82 } },
+            ],
           },
           center: events[0]?.geometry.coordinates ?? [-3.7, 40.4],
           zoom: events.length ? 6 : 4,
-          attributionControl: false,
+          attributionControl: { compact: true },
         });
+        resizeObserver = new ResizeObserver(() => map?.resize());
+        resizeObserver.observe(document.getElementById(mapContainerId) as HTMLElement);
+        window.setTimeout(() => map?.resize(), 0);
+        window.setTimeout(() => map?.resize(), 250);
+        map.addControl(new maplibregl.NavigationControl({ visualizePitch: false }), 'top-right');
         map.on('load', () => {
           if (!map) return;
+          map.resize();
           map.addSource('events', {
             type: 'geojson',
-            data: { type: 'FeatureCollection', features: events },
+            data: featureCollection(events),
           });
           map.addLayer({
             id: 'event-uncertainty',
             type: 'circle',
             source: 'events',
             paint: {
-              'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 4, 10, 22],
-              'circle-color': '#d95f02',
-              'circle-opacity': 0.16,
-              'circle-stroke-color': '#d95f02',
+              'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 10, 10, 34],
+              'circle-color': '#ef6c00',
+              'circle-opacity': 0.18,
+              'circle-stroke-color': '#ef6c00',
               'circle-stroke-width': 1,
             },
           });
@@ -99,10 +120,26 @@ function MapPanel({ events, assets, selectedEventId, onSelect }: MapPanelProps) 
             type: 'circle',
             source: 'events',
             paint: {
-              'circle-radius': ['case', ['==', ['get', 'id'], selectedEventId ?? ''], 9, 6],
-              'circle-color': ['case', ['==', ['get', 'status'], 'activo'], '#c62828', '#5f6b73'],
-              'circle-stroke-color': '#ffffff',
-              'circle-stroke-width': 2,
+              'circle-radius': ['case', ['==', ['get', 'id'], selectedEventId ?? ''], 10, 7],
+              'circle-color': ['case', ['==', ['get', 'status'], 'activo'], '#d7191c', '#6b7280'],
+              'circle-stroke-color': '#fff7ed',
+              'circle-stroke-width': ['case', ['==', ['get', 'id'], selectedEventId ?? ''], 4, 2],
+            },
+          });
+          map.addLayer({
+            id: 'event-labels',
+            type: 'symbol',
+            source: 'events',
+            layout: {
+              'text-field': ['get', 'title'],
+              'text-size': 12,
+              'text-offset': [0, 1.3],
+              'text-anchor': 'top',
+            },
+            paint: {
+              'text-color': '#111827',
+              'text-halo-color': '#ffffff',
+              'text-halo-width': 1.4,
             },
           });
           map.addSource('assets', {
@@ -132,6 +169,11 @@ function MapPanel({ events, assets, selectedEventId, onSelect }: MapPanelProps) 
             const id = feature?.properties?.id as string | undefined;
             if (id) onSelect(id);
           });
+          if (events.length > 1) {
+            const bounds = new maplibregl.LngLatBounds(events[0].geometry.coordinates, events[0].geometry.coordinates);
+            events.slice(1).forEach((event) => bounds.extend(event.geometry.coordinates));
+            map.fitBounds(bounds, { padding: 90, maxZoom: 8, duration: 0 });
+          }
           setMapStatus('Mapa operativo');
         });
       } catch (error) {
@@ -142,6 +184,7 @@ function MapPanel({ events, assets, selectedEventId, onSelect }: MapPanelProps) 
     void loadMap();
     return () => {
       disposed = true;
+      resizeObserver?.disconnect();
       map?.remove();
     };
   }, [assets, events, onSelect, selectedEventId]);
@@ -149,6 +192,16 @@ function MapPanel({ events, assets, selectedEventId, onSelect }: MapPanelProps) 
   return (
     <section className="map-panel" aria-label="Mapa operacional">
       <div id={mapContainerId} className="map-canvas" role="img" aria-label={mapStatus} />
+      <div className="map-toolbar" aria-label="Herramientas de mapa">
+        <button type="button">Eventos</button>
+        <button type="button">Activos</button>
+        <button type="button">Fuentes</button>
+      </div>
+      <div className="map-legend" aria-label="Leyenda">
+        <span><i className="legend-dot wildfire" /> Wildfire</span>
+        <span><i className="legend-dot asset" /> Asset</span>
+        <span><i className="legend-ring" /> Precisión</span>
+      </div>
       <div className="map-status">{mapStatus}</div>
     </section>
   );
@@ -247,7 +300,12 @@ export function App() {
       <header className="topbar">
         <div>
           <p className="eyebrow">GeoOps Platform</p>
-          <h1>Operations</h1>
+          <h1>Operations Console</h1>
+        </div>
+        <div className="topbar-metrics" aria-label="Resumen operacional">
+          <span><strong>{events.length}</strong> eventos</span>
+          <span><strong>{assets.length}</strong> activos</span>
+          <span><strong>{openAlerts.length}</strong> alertas</span>
         </div>
         <SourceHealthIndicator sources={sources} />
       </header>
@@ -258,30 +316,38 @@ export function App() {
       <section className="workspace">
         <aside className="event-list-panel" aria-label="Lista de eventos">
           <div className="panel-header">
-            <h2>Eventos</h2>
+            <div>
+              <h2>Eventos</h2>
+              <p>Wildfire · España</p>
+            </div>
             <span>{events.length}</span>
           </div>
-          {events.map((event) => (
-            <button
-              className={event.properties.id === selectedId ? 'event-row selected' : 'event-row'}
-              key={event.properties.id}
-              onClick={() => setSelectedId(event.properties.id)}
-              type="button"
-            >
-              <strong>{event.properties.title}</strong>
-              <span>{event.properties.status ?? 'estado desconocido'}</span>
-              <span>{formatDate(event.properties.last_observed_at)} · {formatMeters(event.properties.precision_m)}</span>
-            </button>
-          ))}
+          <div className="event-list-scroll">
+            {events.map((event) => (
+              <button
+                className={event.properties.id === selectedId ? 'event-row selected' : 'event-row'}
+                key={event.properties.id}
+                onClick={() => setSelectedId(event.properties.id)}
+                type="button"
+              >
+                <strong>{event.properties.title}</strong>
+                <span>{event.properties.status ?? 'estado desconocido'}</span>
+                <span>{formatDate(event.properties.last_observed_at)} · {formatMeters(event.properties.precision_m)}</span>
+              </button>
+            ))}
+          </div>
         </aside>
 
         <MapPanel events={events} assets={assets} selectedEventId={selectedId} onSelect={setSelectedId} />
 
         <aside className="detail-panel" aria-label="Detalle del evento">
-          <h2>{detail?.properties.title ?? selected?.properties.title ?? 'Sin selección'}</h2>
+          <div className="detail-header">
+            <span className="panel-kicker">Ficha operacional</span>
+            <h2>{detail?.properties.title ?? selected?.properties.title ?? 'Sin selección'}</h2>
+          </div>
           {detail && (
-            <>
-              <section>
+            <div className="detail-scroll">
+              <section className="detail-card">
                 <h3>Resumen</h3>
                 <dl>
                   <dt>Estado</dt>
@@ -296,7 +362,7 @@ export function App() {
                   <dd>{formatMeters(detail.properties.precision_m)}</dd>
                 </dl>
               </section>
-              <section>
+              <section className="detail-card">
                 <h3>Evidencias</h3>
                 {observations.map((obs) => (
                   <p key={obs.id}>
@@ -304,66 +370,74 @@ export function App() {
                   </p>
                 ))}
               </section>
-              <section>
+              <section className="detail-card">
                 <h3>Impactos</h3>
                 {impacts.length === 0 ? <p>Sin activos cruzados todavía.</p> : impacts.map((impact) => (
                   <p key={impact.id}>{impact.asset_name}: {formatMeters(impact.distance_m)} · {impact.reasons[0]}</p>
                 ))}
               </section>
-              <section>
+              <section className="detail-card">
                 <h3>Fuentes</h3>
                 <p>{detail.properties.sources.join(', ') || 'sin fuentes'}</p>
               </section>
-            </>
+            </div>
           )}
         </aside>
-      </section>
 
-      <section className="tools-band">
-        <form className="tool-panel" onSubmit={(event) => { void handleCreateAsset(event); }}>
-          <h2>Activo puntual</h2>
-          <input name="name" placeholder="Nombre" required />
-          <input name="asset_type" placeholder="Tipo" defaultValue="camping" required />
-          <input name="longitude" placeholder="Longitud" type="number" step="0.000001" required />
-          <input name="latitude" placeholder="Latitud" type="number" step="0.000001" required />
-          <select name="criticality" defaultValue="high">
-            <option value="normal">normal</option>
-            <option value="high">high</option>
-          </select>
-          <button type="submit">Crear activo</button>
-          {assets.map((asset) => (
-            <div className="asset-row" key={asset.id}>
-              <span>{asset.name}</span>
-              <button type="button" onClick={() => void deleteAsset(asset.id).then(reload)}>Borrar</button>
+        <section className="control-dock" aria-label="Herramientas operacionales">
+          <form className="dock-card asset-tool" onSubmit={(event) => { void handleCreateAsset(event); }}>
+            <h2>Activo puntual</h2>
+            <div className="compact-form-grid">
+              <input name="name" placeholder="Nombre" required />
+              <input name="asset_type" placeholder="Tipo" defaultValue="camping" required />
+              <input name="longitude" placeholder="Longitud" type="number" step="0.000001" required />
+              <input name="latitude" placeholder="Latitud" type="number" step="0.000001" required />
+              <select name="criticality" defaultValue="high">
+                <option value="normal">normal</option>
+                <option value="high">high</option>
+              </select>
+              <button aria-label="Crear activo" type="submit">Crear</button>
             </div>
-          ))}
-        </form>
+            <div className="asset-strip">
+              {assets.map((asset) => (
+                <span className="asset-chip" key={asset.id}>
+                  {asset.name}
+                  <button type="button" onClick={() => void deleteAsset(asset.id).then(reload)}>×</button>
+                </span>
+              ))}
+            </div>
+          </form>
 
-        <form className="tool-panel" onSubmit={(event) => { void handleCreateRule(event); }}>
-          <h2>Regla de proximidad</h2>
-          <input name="name" placeholder="Nombre" defaultValue="Wildfire near asset" required />
-          <select name="asset_id" required>
-            <option value="">Selecciona activo</option>
-            {assets.map((asset) => <option key={asset.id} value={asset.id}>{asset.name}</option>)}
-          </select>
-          <input name="distance_threshold_m" placeholder="Umbral m" type="number" defaultValue="50000" required />
-          <button type="submit">Crear regla</button>
-        </form>
+          <form className="dock-card rule-tool" onSubmit={(event) => { void handleCreateRule(event); }}>
+            <h2>Regla</h2>
+            <div className="compact-form-grid rule-grid">
+              <input name="name" placeholder="Nombre" defaultValue="Wildfire near asset" required />
+              <select name="asset_id" required>
+                <option value="">Selecciona activo</option>
+                {assets.map((asset) => <option key={asset.id} value={asset.id}>{asset.name}</option>)}
+              </select>
+              <input name="distance_threshold_m" placeholder="Umbral m" type="number" defaultValue="50000" required />
+              <button type="submit">Crear regla</button>
+            </div>
+          </form>
 
-        <section className="tool-panel" aria-label="Alertas">
-          <h2>Alertas abiertas</h2>
-          <p>{openAlerts.length} abiertas</p>
-          {alerts.map((alert) => (
-            <article className="alert-row" key={alert.id}>
-              <strong>{alert.status}</strong>
-              <p>{alert.message}</p>
-              {alert.status === 'open' && (
-                <button type="button" onClick={() => void acknowledgeAlert(alert.id).then(reload)}>
-                  Reconocer
-                </button>
-              )}
-            </article>
-          ))}
+          <section className="dock-card alert-tool" aria-label="Alertas">
+            <h2>Alertas abiertas</h2>
+            <strong>{openAlerts.length}</strong>
+            <div className="alert-strip">
+              {alerts.map((alert) => (
+                <article className="alert-row" key={alert.id}>
+                  <span>{alert.status}</span>
+                  <p>{alert.message}</p>
+                  {alert.status === 'open' && (
+                    <button type="button" onClick={() => void acknowledgeAlert(alert.id).then(reload)}>
+                      Reconocer
+                    </button>
+                  )}
+                </article>
+              ))}
+            </div>
+          </section>
         </section>
       </section>
     </main>
