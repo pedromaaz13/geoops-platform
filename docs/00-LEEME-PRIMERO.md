@@ -17,16 +17,17 @@ documentos en cada sesión.
 | ¿Qué construimos primero y en qué orden? | `10-ROADMAP-M0.md` |
 | ¿Qué funciona realmente hoy? | `11-ESTADO-DEL-PROYECTO.md` |
 | ¿Qué errores relevantes ya conocemos? | `12-ERRORES-Y-SOLUCIONES.md` |
+| ¿Cuál es el corte vertical recomendado después del bootstrap? | `13-PLAN-MVP-RAPIDO.md` |
 | ¿Por qué se tomó una decisión? | `adr/` |
 | ¿Cómo funciona una fuente? | `sources/` |
 | ¿Cuál es el contrato de un recurso? | `contracts/` |
-| ¿Qué estaba haciendo otra sesión? | `../.ai/handoffs/` |
+| ¿Qué estaba haciendo otra sesión? | `.ai/handoffs/` |
 
 ## Reglas
 
 - `AGENTS.md` se lee siempre.
-- `ESTADO-DEL-PROYECTO.md` es la única fuente del estado real.
-- `ROADMAP` describe futuro, no debe afirmar que algo ya existe.
+- `11-ESTADO-DEL-PROYECTO.md` es la única fuente del estado real.
+- `10-ROADMAP-M0.md` y `13-PLAN-MVP-RAPIDO.md` describen futuro, no deben afirmar que algo ya existe.
 - Una decisión arquitectónica permanente va a un ADR.
 - Los documentos temporales viven en `.ai/`.
 - No se duplica el mismo dato en varios documentos.

@@ -457,13 +457,13 @@ Cuando la tarea no termina o cambia de sesión:
 ```text
 AGENTS.md
 README.md
-docs/INICIO-DESARROLLO.md
+docs/01-PRODUCTO-Y-ARQUITECTURA-INICIAL.md
 docs/ARQUITECTURA.md
 docs/ONTOLOGIA.md
 docs/API.md
-docs/ESTADO-DEL-PROYECTO.md
-docs/ROADMAP.md
-docs/ERRORES-Y-SOLUCIONES.md
+docs/11-ESTADO-DEL-PROYECTO.md
+docs/10-ROADMAP-M0.md
+docs/12-ERRORES-Y-SOLUCIONES.md
 docs/sources/
 docs/contracts/
 docs/adr/
@@ -479,11 +479,11 @@ docs/adr/
 
 ## 8.3 Regla de fuente única
 
-- El estado real vive solo en `ESTADO-DEL-PROYECTO.md`.
-- El futuro vive solo en `ROADMAP.md`.
+- El estado real vive solo en `11-ESTADO-DEL-PROYECTO.md`.
+- El futuro vive solo en `10-ROADMAP-M0.md` y `13-PLAN-MVP-RAPIDO.md`.
 - Una decisión vive solo en su ADR.
 - El contrato vive en `contracts/`.
-- Un error relevante vive en `ERRORES-Y-SOLUCIONES.md`.
+- Un error relevante vive en `12-ERRORES-Y-SOLUCIONES.md`.
 - Una tarea temporal no se convierte en documentación permanente por accidente.
 
 ---
@@ -537,7 +537,7 @@ ADR iniciales:
 
 # 10. Documentar errores
 
-`ERRORES-Y-SOLUCIONES.md` no es una lista de stack traces.
+`12-ERRORES-Y-SOLUCIONES.md` no es una lista de stack traces.
 
 Cada entrada debe explicar:
 
@@ -587,12 +587,12 @@ Orden de lectura:
 | Pregunta | Documento |
 |---|---|
 | ¿Qué reglas debo respetar? | `AGENTS.md` |
-| ¿Qué producto construimos? | `docs/INICIO-DESARROLLO.md` |
+| ¿Qué producto construimos? | `docs/01-PRODUCTO-Y-ARQUITECTURA-INICIAL.md` |
 | ¿Cómo está montado? | `docs/ARQUITECTURA.md` |
-| ¿Qué existe hoy? | `docs/ESTADO-DEL-PROYECTO.md` |
-| ¿Qué toca después? | `docs/ROADMAP.md` |
+| ¿Qué existe hoy? | `docs/11-ESTADO-DEL-PROYECTO.md` |
+| ¿Qué toca después? | `docs/10-ROADMAP-M0.md` y `docs/13-PLAN-MVP-RAPIDO.md` |
 | ¿Por qué se decidió así? | `docs/adr/` |
-| ¿Qué falló antes? | `docs/ERRORES-Y-SOLUCIONES.md` |
+| ¿Qué falló antes? | `docs/12-ERRORES-Y-SOLUCIONES.md` |
 | ¿Cómo funciona una fuente? | `docs/sources/` |
 | ¿Qué estaba haciendo la sesión anterior? | `.ai/handoffs/` |
 

@@ -1,6 +1,6 @@
 # Estado del proyecto
 
-**Fecha:** pendiente de crear el repositorio.
+**Fecha:** 2026-08-05.
 
 Este documento es la única fuente del estado real. Se actualiza al cerrar cada
 hito, no al planificarlo.
@@ -9,7 +9,7 @@ hito, no al planificarlo.
 
 ```text
 Nombre: geoops-platform
-Rama de producción: pendiente
+Rama de producción: main
 Producción: pendiente
 ```
 
@@ -17,7 +17,7 @@ Producción: pendiente
 
 | Bloque | Estado | Evidencia |
 |---|---|---|
-| GEO-001 Bootstrap | no iniciado | — |
+| GEO-001 Bootstrap | completado | `make check` en rama `codex/geo-001-bootstrap`; `Makefile`, `pyproject.toml`, `apps/web`, `services/api`, `services/ingestion`, `docker-compose.yml`, `.github/workflows/ci.yml` |
 | GEO-002 Modelos | no iniciado | — |
 | GEO-003 Persistencia | no iniciado | — |
 | GEO-004 Wildfire adapter | no iniciado | — |
@@ -32,16 +32,23 @@ Producción: pendiente
 
 ## Tests
 
-Pendiente.
+Configurados:
+
+- pytest para API e ingesta;
+- prueba de integración marcada para `/ready` con PostGIS;
+- Vitest + Testing Library para la pantalla inicial;
+- Playwright con un smoke E2E.
+
+Última validación local de `GEO-001`: `make check` terminado correctamente.
 
 ## Fuentes conectadas
 
-Pendiente.
+Ninguna.
 
 ## Bloqueos
 
-Pendiente.
+Ninguno para `GEO-001`.
 
 ## Último cambio comprobado
 
-Pendiente.
+2026-08-05: `GEO-001` validado en la rama `codex/geo-001-bootstrap`.

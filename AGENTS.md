@@ -76,7 +76,7 @@ que completar el hueco con una suposición.
 ## 2. Antes de editar
 
 1. Leer la issue o tarea completa.
-2. Leer `docs/INICIO-DESARROLLO.md`.
+2. Leer `docs/00-LEEME-PRIMERO.md`.
 3. Leer el ADR relacionado.
 4. Buscar el punto de entrada con `rg`, búsqueda de símbolos o búsqueda de código.
 5. Leer solo los archivos necesarios.
@@ -306,13 +306,13 @@ Cada tipo de información tiene una única ubicación.
 
 | Información | Documento |
 |---|---|
-| Visión y arquitectura de inicio | `docs/INICIO-DESARROLLO.md` |
-| Estado real del producto | `docs/ESTADO-DEL-PROYECTO.md` |
-| Trabajo próximo | `docs/ROADMAP.md` |
+| Visión y arquitectura de inicio | `docs/01-PRODUCTO-Y-ARQUITECTURA-INICIAL.md` |
+| Estado real del producto | `docs/11-ESTADO-DEL-PROYECTO.md` |
+| Trabajo próximo | `docs/10-ROADMAP-M0.md` y `docs/13-PLAN-MVP-RAPIDO.md` |
 | Decisiones arquitectónicas | `docs/adr/` |
 | Contratos | `docs/contracts/` |
 | Fuentes | `docs/sources/` |
-| Errores relevantes | `docs/ERRORES-Y-SOLUCIONES.md` |
+| Errores relevantes | `docs/12-ERRORES-Y-SOLUCIONES.md` |
 | Handoff temporal | `.ai/handoffs/` |
 | Debug temporal | `.ai/debug/` |
 | Tarea activa | `.ai/tasks/` |
