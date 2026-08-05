@@ -102,6 +102,27 @@ GET /health
 GET /ready
 ```
 
+`GET /v1/sources/health` expone salud operacional por fuente. Campos relevantes:
+
+```text
+freshness_status
+last_download_at
+download_age_seconds
+latest_observed_at
+data_age_seconds
+last_success_at
+ttl_seconds
+stale_reason
+last_run
+```
+
+`freshness_status="stale"` significa que la fuente puede responder, pero la edad
+de descarga o del dato supera el TTL configurado/declarado. Un ultimo run
+`failed` no borra `last_success_at` ni el ultimo dato observado valido.
+
+`GET /v1/operations/summary` incluye `source_health` con listas agregadas de
+fuentes stale/failed y peores edades de dato/descarga.
+
 Filtros:
 
 ```text

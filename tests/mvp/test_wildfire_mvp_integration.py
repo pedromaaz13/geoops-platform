@@ -146,6 +146,82 @@ def test_suspicious_empty_feed_after_recent_activity_is_rejected(tmp_path: Path)
 
 
 @pytest.mark.integration
+def test_source_health_reports_success_with_separate_fresh_ages() -> None:
+    _clean_database()
+    session_factory = create_session_factory()
+    with session_factory() as session:
+        ingest_wildfire_public(session, fixture=FIXTURE)
+        fresh_observed_at = now_utc() - timedelta(hours=1)
+        fresh_download_at = now_utc() - timedelta(minutes=5)
+        run = session.query(SourceRun).one()
+        run.latest_observed_at = fresh_observed_at
+        run.started_at = fresh_download_at - timedelta(minutes=1)
+        run.finished_at = fresh_download_at
+        session.commit()
+
+    response = asyncio.run(_request("GET", "/v1/sources/health"))
+    assert response.status_code == 200
+    wildfire = next(source for source in response.json() if source["id"] == "wildfire-public")
+    assert wildfire["freshness_status"] == "success"
+    assert wildfire["last_download_at"] is not None
+    assert wildfire["last_success_at"] is not None
+    assert wildfire["latest_observed_at"] is not None
+    assert 0 < wildfire["download_age_seconds"] < wildfire["data_age_seconds"]
+    assert wildfire["ttl_seconds"] == 86_400
+
+
+@pytest.mark.integration
+def test_source_health_marks_stale_when_data_age_exceeds_ttl() -> None:
+    _clean_database()
+    session_factory = create_session_factory()
+    with session_factory() as session:
+        ingest_wildfire_public(session, fixture=FIXTURE)
+        stale_observed_at = now_utc() - timedelta(hours=49)
+        recent_download_at = now_utc() - timedelta(minutes=10)
+        run = session.query(SourceRun).one()
+        run.latest_observed_at = stale_observed_at
+        run.started_at = recent_download_at - timedelta(minutes=1)
+        run.finished_at = recent_download_at
+        session.commit()
+
+    response = asyncio.run(_request("GET", "/v1/sources/health"))
+    assert response.status_code == 200
+    wildfire = next(source for source in response.json() if source["id"] == "wildfire-public")
+    assert wildfire["freshness_status"] == "stale"
+    assert wildfire["data_age_seconds"] > wildfire["ttl_seconds"]
+    assert wildfire["download_age_seconds"] < wildfire["ttl_seconds"]
+    assert wildfire["stale_reason"] == "data or download age exceeded ttl"
+
+    summary_response = asyncio.run(_request("GET", "/v1/operations/summary"))
+    assert summary_response.status_code == 200
+    source_health = summary_response.json()["source_health"]
+    assert "wildfire-public" in source_health["stale_sources"]
+    assert source_health["worst_data_age_seconds"] >= wildfire["data_age_seconds"]
+    assert source_health["worst_download_age_seconds"] >= wildfire["download_age_seconds"]
+
+
+@pytest.mark.integration
+def test_source_health_keeps_last_success_after_suspicious_empty_failure(tmp_path: Path) -> None:
+    _clean_database()
+    fixture = _empty_wildfire_fixture(tmp_path)
+    session_factory = create_session_factory()
+    with session_factory() as session:
+        ingest_wildfire_public(session, fixture=FIXTURE)
+        with pytest.raises(WildfireFeedError, match="empty feed after recent activity"):
+            ingest_wildfire_public(session, fixture=fixture)
+
+    response = asyncio.run(_request("GET", "/v1/sources/health"))
+    assert response.status_code == 200
+    wildfire = next(source for source in response.json() if source["id"] == "wildfire-public")
+    assert wildfire["freshness_status"] == "failed"
+    assert wildfire["last_run"]["status"] == "failed"
+    assert wildfire["last_run"]["error_type"] == "suspicious_empty"
+    assert wildfire["last_success_at"] is not None
+    assert wildfire["latest_observed_at"] is not None
+    assert wildfire["records"] == 2
+
+
+@pytest.mark.integration
 def test_old_previous_activity_does_not_block_empty_feed(tmp_path: Path) -> None:
     _clean_database()
     fixture = _empty_wildfire_fixture(tmp_path)
