@@ -1,13 +1,14 @@
 # GeoOps Platform
 
 Plataforma operacional geoespacial para integrar observaciones procedentes de
-fuentes heterogéneas, mantener eventos canónicos, cruzarlos con activos y rutas,
-calcular impactos y activar reglas, alertas y casos.
+fuentes heterogéneas, mantener eventos canónicos, cruzarlos con activos
+puntuales, calcular impactos y activar reglas y alertas internas. Rutas y casos
+forman parte de la dirección de producto, pero no están implementados.
 
-La primera vertical es la aplicación pública de incendios forestales de España.
-GeoOps no sustituye ese repositorio: lo consume como primera fuente y reutiliza
-selectivamente su arquitectura, sus contratos, sus fixtures, sus invariantes y
-su método de ingeniería.
+La primera vertical consume artefactos compatibles con el feed público de
+incendios forestales mediante fixture local o URL configurable. GeoOps no tiene
+una dependencia de código con `incendios_forestales_app`: reutiliza
+selectivamente sus contratos, fixtures, invariantes y método de ingeniería.
 
 ## Orden de lectura
 
@@ -42,10 +43,13 @@ Además del bootstrap de GEO-001, el MVP wildfire entrega:
   revisiones, activos, impactos, reglas y alertas;
 - ingesta `wildfire-public` desde fixture local o URL configurable;
 - raw inmutable local en `var/raw/`;
-- reconciliación MVP por identificador upstream;
+- reconciliación wildfire por identificador upstream y, entre observaciones
+  oficial/satélite, por tolerancia espacial dependiente de precisión dentro de
+  una ventana temporal de seis horas;
 - API `/v1` para eventos, fuentes, runs, activos, impactos, reglas y alertas;
 - consola React con MapLibre, lista, detalle, procedencia y acciones básicas;
-- pruebas unitarias, integración y E2E de la demo.
+- pruebas unitarias y de integración; el E2E actual valida la interfaz con la
+  API interceptada mediante mocks.
 
 No existen todavía AEMET/DGT nativos, autenticación, multiempresa,
 notificaciones externas ni infraestructura productiva.
@@ -84,7 +88,9 @@ make migrate
 - API: `http://127.0.0.1:8000`
 - Web: Vite imprime la URL real. Normalmente `http://127.0.0.1:5173`; si el
   puerto esta ocupado puede usar `5174-5179`.
-- Consola: abre la URL local impresa por Vite y navega a `/operations`.
+- Consola: abre `/operations` sobre la URL local impresa por Vite. No existe
+  React Router: Vite sirve la misma shell de aplicación y la consola conserva
+  panel, filtros y selección en la query string mediante `history.replaceState`.
 
 La API permite CORS local para `127.0.0.1` y `localhost` en los puertos
 `5173-5179`, de forma que `make demo && make dev` siga cargando datos aunque
@@ -115,6 +121,9 @@ make check
 
 `make check` representa las puertas de CI: Compose válido, lint, typecheck,
 tests, build y smoke E2E.
+
+La integración real navegador-API sin mocks está prevista en `GEO-FIX-005`; no
+se considera implementada por el smoke E2E actual.
 
 ## Demo MVP wildfire
 

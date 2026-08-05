@@ -1,86 +1,108 @@
 # Estado del proyecto
 
-**Fecha:** 2026-08-05.
+**Fecha de verificación:** 2026-08-06.
+**Commit verificado:** `main@c1fcb83`.
 
 Este documento es la única fuente del estado real. Se actualiza al cerrar cada
-hito, no al planificarlo.
+hito, no al planificarlo. Los documentos de arquitectura conservan también
+intención futura, marcada expresamente como no implementada.
 
 ## Repositorio
 
 ```text
 Nombre: geoops-platform
 Rama de producción: main
-Producción: pendiente
+Producción desplegada: no
+Primera vertical: wildfire-public
 ```
 
 ## Estado por bloque
 
 | Bloque | Estado | Evidencia |
 |---|---|---|
-| GEO-001 Bootstrap | completado | `make check` en rama `codex/geo-001-bootstrap`; `Makefile`, `pyproject.toml`, `apps/web`, `services/api`, `services/ingestion`, `docker-compose.yml`, `.github/workflows/ci.yml` |
-| GEO-MVP-001 Wildfire end-to-end | completado | `make check` en rama `codex/mvp-wildfire-vertical-slice`; migración `0001_mvp_core`; fixture `tests/fixtures/wildfire_public`; API `/v1`; consola `/operations`; pruebas `tests/mvp` y Playwright |
-| GEO-002 Modelos | absorbido por MVP | `Source`, `SourceRun`, `RawPayload`, `Observation`, `Event`, `EventRevision`, `Asset`, `Impact`, `AlertRule`, `Alert` |
-| GEO-003 Persistencia | absorbido por MVP | Alembic + PostGIS con índices GiST y unicidad de idempotencia |
-| GEO-004 Wildfire adapter | absorbido por MVP | comando `geoops-ingestion wildfire-public` |
-| GEO-005 Normalización | absorbido por MVP | `services/api/geoops_api/wildfire_ingest.py` |
-| GEO-006 Reconciliación | absorbido por MVP | reconciliación MVP por `source_id + upstream_incident_id` |
-| GEO-007 API | absorbido por MVP | endpoints `/v1/events`, fuentes, assets, impactos y alertas |
-| GEO-008 AppShell | absorbido por MVP | consola operacional React |
-| GEO-009 Mapa/lista | absorbido por MVP | MapLibre + lista en `/operations` |
-| GEO-010 Ficha | absorbido por MVP | detalle con observaciones, impactos y procedencia |
-| GEO-UI-002 Paridad wildfire/UI | parcial | rama `codex/geoops-wildfire-parity-and-ui-rebuild`; auditoria `docs/audits/WILDFIRE-PARITY-AUDIT.md`; capturas en `artifacts/screenshots/`; consola map-first con source health, timeline, capas, lista viewport y ficha flotante |
-| GEO-UI-003 Quality system pass | completado en rama | rama `codex/geoops-ui-quality-system-pass`; CORS local ampliado, rail colapsable, tabs workspace/detalle, tooltips, controles visuales, E2E desktop/mobile, capturas en `artifacts/screenshots/` y reglas `docs/design/GEOOPS_UI_QUALITY_RULES.md` |
-| GEO-011 Capas | iniciado | registry inicial de eventos, incertidumbre, activos e impactos; sin hotspots/perimetros/viento/trafico |
-| GEO-012 CI | preparado | `make check` comparte puertas locales y CI |
+| GEO-001 Bootstrap | integrado en `main` | `Makefile`, `pyproject.toml`, `apps/web`, `services/api`, `services/ingestion`, Compose y CI |
+| GEO-MVP-001 Wildfire end-to-end | integrado en `main` | migración `0001_mvp_core`, fixture wildfire, API `/v1`, consola y pruebas MVP |
+| GEO-002 a GEO-010 | absorbidos por el MVP | modelos, persistencia, ingesta, normalización, reconciliación, API, shell, mapa/lista y ficha |
+| GEO-UI-002 Paridad wildfire/UI | integrado, paridad parcial | PR #6; auditorías, consola map-first, source health, timeline, capas, lista y ficha |
+| GEO-UI-003 Quality system pass | integrado | PR #6; CORS local, rail, tooltips, controles, estados de error y reglas visuales |
+| GEO-WF-002 Invariantes wildfire | integrado | PR #7; pruebas de contrato y validaciones del feed |
+| GEO-WF-003 Salida vacía sospechosa | integrado | PR #8; conserva estado válido y marca run fallido |
+| GEO-WF-004 Source health stale real | integrado | PR #9; edades de descarga/dato, último éxito, TTL y razón stale |
+| GEO-WF-005 Filtros wildfire | integrado | PR #11; `origins`, `sensors` y `min_confidence` en API y consola |
+| GEO-WF-006 Reconciliación oficial/satélite | integrado | PR #11; ID upstream o tolerancia espacial dependiente de precisión dentro de seis horas |
+| GEO-011 Capas | inicial | registry de eventos, incertidumbre, activos e impactos; no hay hotspots, perímetros, viento ni tráfico nativos |
+| GEO-012 CI | operativo | GitHub Actions invoca `make check`, igual que local |
 
-## Tests
+## Software implementado
 
-Configurados:
+- PostgreSQL/PostGIS en Docker Compose; FastAPI, CLI y Vite se ejecutan en host.
+- Raw local inmutable en `var/raw`, observaciones, eventos y revisiones.
+- Ingesta manual `wildfire-public` desde fixture o URL configurable y replay de raw.
+- Eventos y activos con geometría `POINT`; impactos por proximidad.
+- Reglas wildfire internas, alertas y transición a `acknowledged`.
+- API para salud, eventos, timeline, fuentes, runs, activos, impactos, reglas y alertas.
+- Consola React/MapLibre en una shell única con rail, drawers, lista, mapa y ficha.
+- Source health con estados degradados y tiempos separados.
 
-- pytest para API e ingesta;
-- prueba de integración marcada para `/ready` con PostGIS;
-- pruebas de integración del MVP para migración, ingesta, idempotencia,
-  revisión, impactos, reglas y alertas;
-- Vitest + Testing Library para la consola operacional;
-- Playwright con un smoke E2E del flujo wildfire.
+## Pruebas
 
-Última validación local de `GEO-001`: `make check` terminado correctamente.
-Última validación local del MVP wildfire: `make check` terminado correctamente
-en la rama `codex/mvp-wildfire-vertical-slice`.
-Última validación parcial de `GEO-UI-002`: lint/typecheck Python y frontend,
-Vitest, build frontend, Playwright mockeado, PostGIS healthy, `/health`, `/ready`,
-`make demo` y pruebas de integración MVP. `make check` queda pendiente de la
-validación final de esta rama.
-Última validación local de `GEO-UI-003`: `docker compose config`, PostGIS
-healthy, `/health`, `/ready`, resumen demo con 2 eventos, `make lint`,
-`make typecheck`, `make test`, `make build`, `make e2e`, `make check` y
-`make demo` terminados correctamente. Warnings vivos: chunk grande de MapLibre
-en build/E2E y avisos `NO_COLOR`/`FORCE_COLOR` de Playwright.
-Incidencia local posterior: una API ajena en `8000` hacia que la UI cargara
-contra un backend equivocado. Validado y documentado en
-`docs/14-VALIDACION-INCIDENCIA-Y-PROXIMOS-PASOS.md`; `make dev` incorpora
-preflight de puerto.
+Configurado y verificado en el ciclo hasta `c1fcb83`:
+
+- pytest unitario para API, CLI e invariantes de ingesta;
+- pytest de integración con PostGIS para readiness y vertical wildfire;
+- Vitest + Testing Library para la consola;
+- Playwright para interacción desktop/mobile con API interceptada;
+- lint Ruff/ESLint, mypy/TypeScript, builds Python/frontend y Compose config;
+- `make check` como puerta compartida por local y CI.
+
+El E2E navegador-API real, sin `page.route`, no existe todavía y está definido
+como `GEO-FIX-005`.
+
+Warnings vivos conocidos:
+
+- chunk de MapLibre superior al presupuesto recomendado por Vite;
+- avisos `NO_COLOR`/`FORCE_COLOR` en Playwright;
+- el primer `make check` posterior a PR #11 sufrió un timeout local del webserver;
+  `make e2e` aislado y la repetición completa terminaron correctamente.
 
 ## Fuentes conectadas
 
-- `wildfire-public`: fixture local y URL configurable. No se descarga nada por
-  defecto durante tests.
+- `wildfire-public`: fixture local y URL configurable. No descarga fuentes
+  externas durante tests y no tiene scheduler.
+
+AEMET, DGT, IGN, GDACS, Copernicus y demás fuentes permanecen previstas, no
+conectadas.
+
+## Limitaciones verificadas
+
+- No existen autenticación, organizaciones, multiempresa, rutas ni casos.
+- `Event.geometry` y `Asset.geometry` solo admiten `POINT`.
+- No hay scheduler, notificaciones externas ni infraestructura productiva.
+- Los endpoints no declaran `response_model`; OpenAPI runtime no constituye un
+  contrato versionado y el frontend mantiene tipos manuales.
+- `/v1/events` limita a 200, ordena por UUID y puede devolver `next_cursor` con
+  `meta.partial=false`; seguimiento en `GEO-FIX-001`.
+- El motor de alertas no aplica todavía cooldown material ni resolución
+  automática; seguimiento en `GEO-FIX-002`.
+- La reconciliación espacial actual calcula candidatos en Python y duplica
+  coordenadas derivadas en `attributes`; seguimiento en `GEO-FIX-004`.
+- El buscador no incorpora gazetteer IGN y la cobertura de pruebas sigue por
+  debajo de `incendios_forestales_app`.
+- El mapa depende de teselas externas y mantiene un fallback declarado.
+
+Los detalles y evidencias de estos defectos están en
+`docs/GEOOPS-REVISION-2.md` y, para esta corrección documental, en
+`.ai/debug/GEO-FIX-006-HALLAZGOS-FUERA-DE-ALCANCE.md`.
 
 ## Bloqueos
 
-Ninguno para el MVP wildfire.
+No hay un bloqueo para ejecutar el MVP local. GeoOps no debe considerarse listo
+para producción mientras permanezcan abiertos los defectos A de paginación,
+alertas y contratos tipados descritos en la revisión.
 
 ## Último cambio comprobado
 
-2026-08-05: `GEO-UI-002` reconstruye la consola `/operations` hacia paridad
-wildfire. Estado: parcial hasta ejecutar `make check` final y resolver los
-pendientes vivos de auditoria que se consideren bloqueantes para merge.
-
-2026-08-05: `GEO-UI-003` inicia pase de calidad de la consola operacional con
-rail tipo GIS/BigQuery, tabs, tooltips, controles compactos y carga local mas
-robusta cuando Vite usa puertos alternativos.
-
-2026-08-05: `GEO-UI-003` queda validado en rama con capturas desktop, mobile y
-rail tooltip. No declara paridad final wildfire: siguen fuera gazetteer IGN,
-filtros sensor/confianza/origen y pruebas equivalentes completas del visor
-original.
+2026-08-06: `main@c1fcb83` integra PR #11 con filtros wildfire por origen,
+sensor y confianza, y reconciliación oficial/satélite por tolerancia espacial y
+ventana temporal. `GEO-FIX-006` corrige la documentación desde ese punto sin
+implementar funcionalidad nueva.

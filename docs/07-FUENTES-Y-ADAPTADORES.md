@@ -7,6 +7,11 @@ configurable. Su documentación vive en `docs/sources/wildfire-public-feed.md`.
 La ingesta se ejecuta manualmente con `geoops-ingestion wildfire-public`; no
 existe scheduler ni scraping.
 
+Verificado contra `main@c1fcb83` el 2026-08-06. La implementación de descarga,
+validación, normalización y reconciliación wildfire está reunida en
+`services/api/geoops_api/wildfire_ingest.py`; la CLI de `services/ingestion` la
+invoca. No existen todavía adapters y normalizers como paquetes separados.
+
 ---
 
 Cada fuente es un producto de datos con contrato, limitaciones, licencia y
@@ -15,6 +20,11 @@ comportamiento operativo. No es solo una URL.
 ---
 
 ## 1. Estructura
+
+### Previsto, no implementado — 2026-08-06
+
+La siguiente es la estructura requerida para una fuente nueva, no la estructura
+de la única fuente actual:
 
 ```text
 adapters/<source_id>.py
@@ -50,6 +60,11 @@ docs/sources/<source_id>.md
 
 ## 3. Contrato del adaptador
 
+### Previsto, no implementado — 2026-08-06
+
+`SourceAdapter` no existe hoy como `Protocol`. Se conserva este contrato como
+frontera objetivo:
+
 ```python
 class SourceAdapter(Protocol):
     source_id: str
@@ -59,6 +74,11 @@ class SourceAdapter(Protocol):
 No normaliza eventos.
 
 ## 4. Contrato del normalizador
+
+### Previsto, no implementado — 2026-08-06
+
+`ObservationNormalizer` no existe hoy como `Protocol`. La normalización wildfire
+actual son funciones de `wildfire_ingest.py`:
 
 ```python
 class ObservationNormalizer(Protocol):
@@ -71,22 +91,30 @@ class ObservationNormalizer(Protocol):
 
 ## 5. Estados de run
 
-- `success`: petición y contenido esperados;
-- `partial`: parte del contenido rechazado;
-- `empty`: cero legítimo y comprobable;
-- `stale`: responde, pero no existen datos nuevos;
-- `failed`: no se puede usar;
-- `disabled`: deshabilitada intencionadamente.
+Estados persistidos actualmente en `SourceRun` por la ingesta wildfire:
+
+- `success`: contenido válido con registros;
+- `empty`: cero permitido y comprobable;
+- `failed`: validación, descarga o salida vacía sospechosa rechazada.
+
+La salud de fuente calculada por `/v1/sources/health` puede exponer además
+`partial`, `stale` y `disabled`. `stale` compara por separado edad de descarga y
+edad del dato con el TTL; no significa que exista un `SourceRun.status=stale`.
 
 ## 6. Fuentes iniciales
 
-### M0
+### Conectada actualmente
 
 - feed público de incendios;
+
+### Previsto, no implementado — 2026-08-06
+
+Próximas candidatas, sujetas a verificación de endpoint, licencia y fixture:
+
 - AEMET CAP;
 - DGT DATEX II.
 
-### M1
+Otras candidatas:
 
 - IGN terremotos;
 - GDACS;

@@ -71,6 +71,13 @@ relación estimada
 
 que completar el hueco con una suposición.
 
+### 1.7 Un dato tiene un solo sitio
+
+Si un valor vive en una columna tipada, no se duplica en `attributes`. Si se
+necesita en JSONB por rendimiento, se documenta como cache derivada y se declara
+quien la regenera. Dos fuentes de verdad para el mismo valor es un defecto, no
+una optimizacion.
+
 ---
 
 ## 2. Antes de editar
@@ -306,6 +313,13 @@ curl -fsS http://127.0.0.1:8000/v1/operations/summary
 La respuesta de `/health` debe incluir `service=geoops-api`. Si responde otro
 servicio, la prueba UI no es valida.
 
+### 8.5 Ningun cambio de contrato se valida solo con mocks
+
+Los mocks de Vitest y Playwright son validos para comportamiento de interfaz.
+No son validos para verificar la forma de una respuesta. Todo cambio en un
+endpoint necesita, ademas, una prueba contra la API real levantada con
+`make demo`.
+
 ---
 
 ## 9. Fuentes externas
@@ -369,15 +383,24 @@ Orden:
 Comandos previstos:
 
 ```bash
-make test-unit
-make test-api
-make test-ingestion
-make test-contract
+make lint
 make typecheck
+make test-unit
+make test-integration
+make test
 make build
 make e2e
-make test
+make check
 ```
+
+`make test-contract` no existe todavia. Se incorporara con `GEO-FIX-005` cuando
+exista una prueba front-back real sin interceptar la API con mocks.
+
+### 10.1 Truncar es degradar
+
+Cualquier respuesta que devuelva menos datos de los que existen debe declararlo
+en su propio cuerpo. Un `limit` alcanzado sin marca de parcialidad es una mentira
+al cliente, no una optimizacion.
 
 Reglas:
 
