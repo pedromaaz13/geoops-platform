@@ -16,38 +16,39 @@ su método de ingeniería.
 3. El documento indicado por el router.
 4. La tarea activa en `.ai/tasks/`, cuando exista.
 
-## Primera meta
+## Flujo actual
 
 ```text
-incendios_forestales_app
-        ↓ artefactos versionados
-GeoOps ingestion
-        ↓
-Observation
-        ↓ reconciliación
-Event
-        ↓
-PostGIS + API
-        ↓
+wildfire public fixture/live artifacts
+        ↓ geoops-ingestion wildfire-public
+raw payloads + Observation
+        ↓ reconciliation
+Event + EventRevision
+        ↓ PostGIS + FastAPI
 Operations Console
+        ↓
+Asset + Impact + internal Alert
 ```
 
-La primera demo debe permitir consultar incendios por espacio y tiempo, conocer
-qué observaciones los respaldan, qué fuente afirma su estado, la antigüedad y
-precisión del dato y su evolución.
+La demo MVP permite importar un feed wildfire reducido, consultar eventos por
+API, ver lista/mapa/detalle, crear un activo puntual, calcular impacto por
+proximidad, crear una regla `wildfire within distance` y reconocer la alerta.
 
 ## Estado actual
 
-GEO-001 prepara únicamente el entorno de desarrollo. Hoy existen:
+Además del bootstrap de GEO-001, el MVP wildfire entrega:
 
-- API FastAPI con `GET /health` y `GET /ready`;
-- PostGIS local mediante Docker Compose;
-- CLI mínima `geoops-ingestion`;
-- web React/Vite con pantalla inicial honesta;
-- pruebas mínimas de backend, CLI, frontend y E2E smoke.
+- migración PostGIS inicial con fuentes, raw, observaciones, eventos,
+  revisiones, activos, impactos, reglas y alertas;
+- ingesta `wildfire-public` desde fixture local o URL configurable;
+- raw inmutable local en `var/raw/`;
+- reconciliación MVP por identificador upstream;
+- API `/v1` para eventos, fuentes, runs, activos, impactos, reglas y alertas;
+- consola React con MapLibre, lista, detalle, procedencia y acciones básicas;
+- pruebas unitarias, integración y E2E de la demo.
 
-No existen todavía modelos de dominio, adaptadores reales, ingesta wildfire,
-eventos persistidos, activos ni alertas.
+No existen todavía AEMET/DGT nativos, autenticación, multiempresa,
+notificaciones externas ni infraestructura productiva.
 
 ## Requisitos
 
@@ -73,10 +74,16 @@ workspace frontend con `pnpm` e instala Chromium para Playwright.
 make dev
 ```
 
-Este comando levanta PostGIS, espera su healthcheck y arranca FastAPI y Vite:
+Este comando levanta PostGIS, espera su healthcheck y arranca FastAPI y Vite.
+Ejecuta migraciones antes si partes de una base limpia:
+
+```bash
+make migrate
+```
 
 - API: `http://127.0.0.1:8000`
 - Web: `http://127.0.0.1:5173`
+- Consola: `http://127.0.0.1:5173/operations`
 
 Para detener PostGIS:
 
@@ -100,6 +107,23 @@ make check
 `make check` representa las puertas de CI: Compose válido, lint, typecheck,
 tests, build y smoke E2E.
 
+## Demo MVP wildfire
+
+```bash
+make demo
+make dev
+```
+
+`make demo` levanta PostGIS, espera el healthcheck, aplica migraciones, importa
+`tests/fixtures/wildfire_public` y crea un activo/regla de demostración. Es
+idempotente para la reingesta del fixture y reutiliza la regla demo si ya existe.
+
+Para reiniciar la base local y los raw de demo:
+
+```bash
+make reset-demo
+```
+
 ## Smoke manual
 
 Con PostGIS levantado:
@@ -109,6 +133,8 @@ curl http://127.0.0.1:8000/health
 curl http://127.0.0.1:8000/ready
 uv run geoops-ingestion --help
 uv run geoops-ingestion smoke
+uv run geoops-ingestion wildfire-public --fixture tests/fixtures/wildfire_public
+uv run geoops-ingestion demo-seed
 ```
 
 `/ready` solo responde `200` si puede ejecutar `postgis_version()` contra la

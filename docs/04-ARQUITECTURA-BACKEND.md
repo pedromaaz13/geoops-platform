@@ -1,5 +1,15 @@
 # Arquitectura backend
 
+## Estado MVP wildfire
+
+El backend actual es un monolito modular FastAPI. La API y la CLI comparten
+modelos SQLAlchemy, sesiones de base de datos y servicios de aplicación. Alembic
+crea la migración inicial PostGIS. Los endpoints `/health` y `/ready` siguen
+siendo la puerta operacional mínima, y `/v1` expone eventos, fuentes, activos,
+impactos, reglas y alertas internas.
+
+---
+
 Este documento convierte el pipeline conceptual en una estructura implementable.
 
 ---

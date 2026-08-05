@@ -1,5 +1,14 @@
 # Fuentes y adaptadores
 
+## Estado MVP wildfire
+
+La única fuente conectada es `wildfire-public`, con fixture reproducible y URL
+configurable. Su documentación vive en `docs/sources/wildfire-public-feed.md`.
+La ingesta se ejecuta manualmente con `geoops-ingestion wildfire-public`; no
+existe scheduler ni scraping.
+
+---
+
 Cada fuente es un producto de datos con contrato, limitaciones, licencia y
 comportamiento operativo. No es solo una URL.
 

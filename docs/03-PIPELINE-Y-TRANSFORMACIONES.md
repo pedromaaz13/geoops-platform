@@ -1,5 +1,15 @@
 # Pipeline y transformaciones
 
+## Estado MVP wildfire
+
+El MVP implementa el primer flujo vertical con `wildfire-public`: lectura de
+`manifest.json`, `incidents.geojson` y `sources.json`; conservación de raw en
+`var/raw/`; normalización a `Observation`; reconciliación MVP a `Event`;
+revisión ante cambios relevantes; cálculo de impacto por proximidad; y alerta
+interna deduplicada. No hay scheduler ni adaptadores AEMET/DGT.
+
+---
+
 Este es el documento técnico más importante del arranque de GeoOps. Explica el
 activo principal heredado de `incendios_forestales_app`: no un mapa, sino un
 pipeline que convierte fuentes heterogéneas, parciales y potencialmente
