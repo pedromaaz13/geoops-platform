@@ -13,20 +13,25 @@ Estas reglas guian la consola operacional GeoOps a partir de GEO-UI-003.
 
 ## Layout
 
-- Top bar: marca, tabs de workspace y metric strip compacto.
+- Top bar: marca, contexto de mision y metric strip compacto. No duplica la
+  navegacion del rail.
 - Rail izquierdo: colapsable, icon-only o expandido, con estado activo, badge y tooltip.
-- Panel contextual: herramientas del workspace activo.
+- Paneles contextuales: drawers cerrables para busqueda, filtros, capas y vistas
+  funcionales.
 - Mapa: area central de trabajo, con fallback honesto si tiles o WebGL fallan.
 - Lista derecha: eventos visibles y accionables; oculta en pantallas estrechas.
-- Ficha de evento: panel flotante profesional con tabs internas.
+- Ficha de evento: panel flotante profesional con tabs internas, solo despues de
+  seleccion explicita.
 
 ## Navegacion
 
 - Entradas del rail: Home, Operaciones, Fuentes, Activos, Alertas, Capas, Analisis, Configuracion.
-- Tabs superiores: Operaciones, Fuentes, Activos, Alertas, Analisis.
+- No hay tabs superiores duplicando el rail. Si aparecen tabs de workspace en
+  el futuro, deben resolver una funcion distinta de la navegacion primaria.
 - Tabs de ficha: Resumen, Evidencias, Evolucion, Impactos, Fuentes.
 - La URL refleja panel y tab principal cuando se apartan del valor por defecto.
 - Cambiar tabs no debe borrar evento seleccionado ni camara del mapa.
+- La entrada limpia a `/operations` no autoselecciona eventos.
 
 ## Visual System
 

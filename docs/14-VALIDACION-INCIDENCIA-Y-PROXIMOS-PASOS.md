@@ -131,16 +131,29 @@ Piezas existentes:
 
 ### UI pendiente
 
-La UI actual ya funciona con datos, pero sigue siendo un primer corte visual.
+Tras `GEO-UI-004` la UI deja de autoseleccionar eventos y recupera un enfoque
+map-first: la busqueda, filtros y capas son paneles cerrables; la ficha solo se
+abre con seleccion explicita; el rail es la navegacion principal; y las capturas
+desktop/mobile demuestran datos visibles. Sigue siendo un corte de consola, no
+un producto final.
+
 Pendientes:
 
-- redisenar topbar y metric strip para que no dependan de compresion extrema;
-- reducir solapamientos entre ficha, leyenda y timeline;
+- afinar topbar y metric strip si se amplian KPIs;
+- sustituir el fallback aproximado por teselas fiables o proveedor configurable;
 - convertir formularios de activos/reglas en paneles operacionales maduros;
 - pulir estados vacios y loading;
-- mejorar mobile con drawer real;
+- ampliar mobile con drawer de eventos y gesto de cierre;
 - revisar espaciado, pesos tipograficos, bordes y jerarquia visual contra
   `docs/design/references/geoops-visual-direction.png`.
+
+Capturas de este pase:
+
+- `artifacts/screenshots/geoops-operational-console-redesign-desktop.png`
+- `artifacts/screenshots/geoops-operational-console-redesign-search.png`
+- `artifacts/screenshots/geoops-operational-console-redesign-detail.png`
+- `artifacts/screenshots/geoops-operational-console-redesign-layers.png`
+- `artifacts/screenshots/geoops-operational-console-redesign-mobile.png`
 
 ## 5. Que reutilizar del visor de incendios
 
@@ -218,6 +231,24 @@ obligatorias del visor:
 - validacion especifica;
 - requiere aprobacion;
 - no repetir en handoffs.
+
+## 8. Auditoria backend/pipeline
+
+La auditoria especifica vive en:
+
+```text
+docs/audits/WILDFIRE-BACKEND-PIPELINE-PARITY-AUDIT.md
+```
+
+Conclusiones:
+
+- GeoOps tiene flujo MVP wildfire end-to-end, no paridad completa.
+- Falta suite de invariantes equivalente al visor.
+- Falta guard de salida vacia sospechosa.
+- Falta stale real por fuente con edad de descarga y edad de dato.
+- Falta exponer filtros wildfire de origen/sensor/confianza.
+- Falta reconciliacion oficial/satelite por tolerancia y ventana temporal.
+
 
 ### CI y pruebas
 
