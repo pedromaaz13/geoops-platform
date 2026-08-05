@@ -83,7 +83,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "demo-seed":
         session_factory = create_session_factory()
         with session_factory() as session:
-            events = list_events(session, bbox=None, types="wildfire", from_time=None, to_time=None, updated_after=None, limit=1, cursor=None)
+            events = list_events(
+                session,
+                bbox=None,
+                types="wildfire",
+                from_time=None,
+                to_time=None,
+                updated_after=None,
+                status=None,
+                sources=None,
+                has_impact=None,
+                has_alert=None,
+                limit=1,
+                cursor=None,
+            )
             if not events["features"]:
                 raise SystemExit("No wildfire events available. Run wildfire-public ingestion first.")
             coords = events["features"][0]["geometry"]["coordinates"]

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
 from typing import Any, cast
 from uuid import uuid4
 
@@ -18,6 +19,7 @@ from geoops_api.models import (
     EventRevision,
     Impact,
     Observation,
+    RawPayload,
     Source,
     SourceRun,
 )
@@ -73,6 +75,10 @@ def list_events(
     from_time: str | None,
     to_time: str | None,
     updated_after: str | None,
+    status: str | None,
+    sources: str | None,
+    has_impact: bool | None,
+    has_alert: bool | None,
     limit: int,
     cursor: str | None,
 ) -> dict[str, Any]:
@@ -100,6 +106,24 @@ def list_events(
         filters.append(Event.last_observed_at <= parse_utc(to_time))
     if updated_after:
         filters.append(Event.updated_at > parse_utc(updated_after))
+    if status:
+        statuses = [part.strip() for part in status.split(",") if part.strip()]
+        filters.append(Event.status.in_(statuses))
+    if sources:
+        source_ids = [part.strip() for part in sources.split(",") if part.strip()]
+        filters.append(
+            Event.id.in_(
+                select(EventObservation.event_id)
+                .join(Observation, Observation.id == EventObservation.observation_id)
+                .where(Observation.source_id.in_(source_ids))
+            )
+        )
+    if has_impact is not None:
+        impact_subquery = select(Impact.event_id)
+        filters.append(Event.id.in_(impact_subquery) if has_impact else Event.id.not_in(impact_subquery))
+    if has_alert is not None:
+        alert_subquery = select(Alert.event_id).where(Alert.status == "open")
+        filters.append(Event.id.in_(alert_subquery) if has_alert else Event.id.not_in(alert_subquery))
     if cursor:
         filters.append(Event.id > cursor)
     if filters:
@@ -115,6 +139,83 @@ def list_events(
             "generated_at": iso_utc(now_utc()),
             "partial": False,
         },
+    }
+
+
+def _latest_raw_json(session: Session, artifact: str) -> dict[str, Any] | None:
+    raw = session.scalar(
+        select(RawPayload)
+        .where(RawPayload.payload_metadata["artifact"].astext == artifact)
+        .order_by(RawPayload.fetched_at.desc())
+    )
+    if raw is None:
+        return None
+    try:
+        with open(raw.storage_uri, encoding="utf-8") as file:
+            payload = json.load(file)
+    except OSError:
+        return None
+    return cast(dict[str, Any], payload)
+
+
+def _age_seconds(value: Any) -> int | None:
+    parsed = parse_utc(value) if isinstance(value, str) else value
+    if parsed is None:
+        return None
+    return max(0, int((now_utc() - parsed).total_seconds()))
+
+
+def _manifest_operational_state(session: Session) -> dict[str, Any]:
+    manifest = _latest_raw_json(session, "manifest") or {}
+    return {
+        "generated_at": manifest.get("generated_at"),
+        "pipeline_age_seconds": manifest.get("pipeline_age_seconds")
+        if manifest.get("pipeline_age_seconds") is not None
+        else _age_seconds(manifest.get("generated_at")),
+        "data_age_seconds": manifest.get("data_age_seconds") or {},
+        "worst_data_age_seconds": manifest.get("worst_data_age_seconds"),
+        "counts": manifest.get("counts") or {},
+        "frp_total_mw": manifest.get("frp_total_mw"),
+        "degraded": bool(manifest.get("degraded")),
+        "degraded_reason": manifest.get("degraded_reason"),
+        "demo": bool(manifest.get("demo")),
+        "demo_reason": manifest.get("demo_reason"),
+    }
+
+
+def operations_summary(session: Session) -> dict[str, Any]:
+    events = session.scalars(select(Event)).all()
+    open_alerts = session.scalars(select(Alert).where(Alert.status == "open")).all()
+    impacted_event_ids = set(session.scalars(select(Impact.event_id)).all())
+    sources = list_source_health(session)
+    latest_observed = max((event.last_observed_at for event in events if event.last_observed_at), default=None)
+    latest_updated = max((event.updated_at for event in events if event.updated_at), default=None)
+    status_counts = Counter(event.status or "desconocido" for event in events)
+    type_counts = Counter(event.event_type for event in events)
+    source_counts = Counter(source_id for event in events for source_id in _event_feature(session, event)["properties"]["sources"])
+    degraded_sources = [
+        source["id"]
+        for source in sources
+        if source.get("freshness_status") in {"partial", "stale", "failed", "disabled"}
+        or ((source.get("last_run") or {}).get("status") not in {None, "success", "empty"})
+    ]
+    return {
+        "generated_at": iso_utc(now_utc()),
+        "events_total": len(events),
+        "events_by_status": dict(status_counts),
+        "events_by_type": dict(type_counts),
+        "events_by_source": dict(source_counts),
+        "events_recent_24h": sum(
+            1 for event in events if event.last_observed_at and (now_utc() - event.last_observed_at).total_seconds() <= 86_400
+        ),
+        "events_with_impact": len(impacted_event_ids),
+        "open_alerts": len(open_alerts),
+        "assets_total": session.scalar(select(func.count()).select_from(Asset)) or 0,
+        "sources_total": len(sources),
+        "sources_degraded": degraded_sources,
+        "latest_observed_at": iso_utc(latest_observed),
+        "latest_ingested_at": iso_utc(latest_updated),
+        "manifest": _manifest_operational_state(session),
     }
 
 
@@ -183,6 +284,41 @@ def list_event_revisions(session: Session, event_id: str) -> list[dict[str, Any]
     ]
 
 
+def event_timeline(session: Session, event_id: str) -> dict[str, Any] | None:
+    if session.get(Event, event_id) is None:
+        return None
+    observations = list_event_observations(session, event_id)
+    revisions = list_event_revisions(session, event_id)
+    points = [
+        {
+            "kind": "observation",
+            "timestamp": obs["observed_at"] or obs["ingested_at"],
+            "source_id": obs["source_id"],
+            "label": f"Observacion {obs['source_id']}",
+            "precision_m": obs["precision_m"],
+            "payload": obs,
+        }
+        for obs in observations
+    ]
+    points.extend(
+        {
+            "kind": "revision",
+            "timestamp": rev["changed_at"],
+            "source_id": None,
+            "label": f"Revision {rev['revision_number']}",
+            "changed_fields": rev["changed_fields"],
+            "payload": rev,
+        }
+        for rev in revisions
+    )
+    points.sort(key=lambda item: str(item["timestamp"] or ""))
+    return {
+        "event_id": event_id,
+        "generated_at": iso_utc(now_utc()),
+        "points": points,
+    }
+
+
 def list_sources(session: Session) -> list[dict[str, Any]]:
     return [
         {
@@ -199,11 +335,24 @@ def list_sources(session: Session) -> list[dict[str, Any]]:
 
 def list_source_health(session: Session) -> list[dict[str, Any]]:
     sources = list_sources(session)
+    source_payload = _latest_raw_json(session, "sources") or {}
+    manifest = _manifest_operational_state(session)
+    source_metadata = {str(item.get("id")): item for item in source_payload.get("sources") or []}
     runs_by_source: dict[str, SourceRun] = {}
     for run in session.scalars(select(SourceRun).order_by(SourceRun.source_id, SourceRun.started_at.desc())).all():
         runs_by_source.setdefault(run.source_id, run)
     for source in sources:
         latest_run = runs_by_source.get(source["id"])
+        metadata = source_metadata.get(str(source["id"]), {})
+        metadata_status = metadata.get("status")
+        run_status = latest_run.status if latest_run else ("disabled" if not source["enabled"] else "failed")
+        freshness_status = "disabled" if not source["enabled"] else run_status
+        if metadata_status == "ok":
+            freshness_status = "success"
+        elif metadata_status in {"stale", "error", "disabled"}:
+            freshness_status = "failed" if metadata_status == "error" else metadata_status
+        if latest_run and latest_run.records_rejected and latest_run.records_accepted:
+            freshness_status = "partial"
         source["last_run"] = None if latest_run is None else {
             "id": latest_run.id,
             "status": latest_run.status,
@@ -216,6 +365,21 @@ def list_source_health(session: Session) -> list[dict[str, Any]]:
             "error_type": latest_run.error_type,
             "error_message": latest_run.error_message,
         }
+        source["region"] = metadata.get("region")
+        source["organism"] = metadata.get("name") or source["name"]
+        source["freshness_status"] = freshness_status
+        source["last_success_at"] = metadata.get("last_success_at")
+        source["data_age_seconds"] = metadata.get("data_age_seconds") or manifest["data_age_seconds"].get(source["id"])
+        source["pipeline_age_seconds"] = manifest["pipeline_age_seconds"]
+        source["ttl_seconds"] = metadata.get("ttl_seconds")
+        source["records"] = metadata.get("records") if metadata.get("records") is not None else (
+            latest_run.records_accepted if latest_run else None
+        )
+        source["precision_m"] = metadata.get("precision_m")
+        source["coverage"] = metadata.get("region")
+        source["stale_reason"] = metadata.get("stale_reason")
+        source["error"] = metadata.get("error") or (latest_run.error_message if latest_run else None)
+        source["consecutive_failures"] = metadata.get("consecutive_failures")
     return sources
 
 
