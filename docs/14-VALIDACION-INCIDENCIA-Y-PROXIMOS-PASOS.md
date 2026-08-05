@@ -249,6 +249,15 @@ Conclusiones:
 - Falta exponer filtros wildfire de origen/sensor/confianza.
 - Falta reconciliacion oficial/satelite por tolerancia y ventana temporal.
 
+Actualizacion `GEO-WF-002`:
+
+- Ya existe una suite inicial de invariantes de contrato wildfire.
+- La ingesta rechaza origen incoherente, bbox invalido, precision ausente o no
+  positiva, tiempos invertidos, estado sin fuente oficial y vocabulario de
+  estado no permitido.
+- Sigue pendiente el guard historico de salida vacia sospechosa y stale real por
+  fuente.
+
 
 ### CI y pruebas
 

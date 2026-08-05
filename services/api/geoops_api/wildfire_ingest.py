@@ -7,7 +7,7 @@ import urllib.request
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 from geoalchemy2.shape import from_shape
@@ -33,6 +33,9 @@ SOURCE_ID = "wildfire-public"
 RECONCILIATION_VERSION = "wildfire-upstream-id-v1"
 SUPPORTED_SCHEMA_VERSION = 1
 RAW_ROOT = Path("var/raw")
+SPAIN_BBOX = (-19.0, 27.0, 5.0, 44.5)
+VALID_ORIGINS = {"satelite", "oficial", "ambos"}
+VALID_STATUS = {"activo", "estabilizado", "controlado"}
 
 ARTIFACTS = {
     "manifest": "manifest.json",
@@ -138,12 +141,43 @@ def _validate_feed(manifest: dict[str, Any], incidents: dict[str, Any], sources:
             errors.append(f"duplicated incident id {upstream_id}")
         ids.add(str(upstream_id))
 
+        origin = props.get("origin")
+        satellite_confirmed = bool(props.get("satellite_confirmed"))
+        official_confirmed = bool(props.get("official_confirmed"))
+        if origin not in VALID_ORIGINS:
+            errors.append(f"incident {upstream_id} has invalid origin {origin}")
+        elif (origin == "ambos") != (satellite_confirmed and official_confirmed):
+            errors.append(f"incident {upstream_id} origin does not match confirmation flags")
+        elif origin == "satelite" and not satellite_confirmed:
+            errors.append(f"incident {upstream_id} satellite origin without satellite confirmation")
+        elif origin == "oficial" and not official_confirmed:
+            errors.append(f"incident {upstream_id} official origin without official confirmation")
+
         precision = props.get("position_precision_m")
-        if precision is not None and float(precision) <= 0:
+        if precision is None:
+            errors.append(f"incident {upstream_id} missing position_precision_m")
+        elif float(precision) <= 0:
             errors.append(f"incident {upstream_id} has non-positive precision")
 
-        if props.get("status") is not None and not props.get("official_confirmed"):
-            errors.append(f"incident {upstream_id} declares status without official confirmation")
+        first_detected = parse_utc(props.get("first_detected"))
+        last_detected = parse_utc(props.get("last_detected"))
+        if first_detected and last_detected and first_detected > last_detected:
+            errors.append(f"incident {upstream_id} has first_detected after last_detected")
+
+        status = props.get("status")
+        if status is not None:
+            if status not in VALID_STATUS:
+                errors.append(f"incident {upstream_id} has status outside allowed vocabulary")
+            if not official_confirmed:
+                errors.append(f"incident {upstream_id} declares status without official confirmation")
+            if not str(props.get("confirmed_by") or "").strip():
+                errors.append(f"incident {upstream_id} declares status without confirmed_by")
+            if props.get("status_origen") != "oficial":
+                errors.append(f"incident {upstream_id} declares status without status_origen=oficial")
+
+        n_hotspots = props.get("n_hotspots")
+        if n_hotspots is not None and int(n_hotspots) == 0 and origin != "oficial":
+            errors.append(f"incident {upstream_id} has n_hotspots=0 with non-official origin")
 
         try:
             geom = shape(feature.get("geometry"))
@@ -152,6 +186,11 @@ def _validate_feed(manifest: dict[str, Any], incidents: dict[str, Any], sources:
             continue
         if geom.is_empty or not geom.is_valid or geom.geom_type != "Point":
             errors.append(f"incident {upstream_id} geometry must be a valid Point")
+            continue
+        point = cast(Point, geom)
+        west, south, east, north = SPAIN_BBOX
+        if not (west <= point.x <= east and south <= point.y <= north):
+            errors.append(f"incident {upstream_id} geometry outside operational bbox")
 
     expected = manifest.get("counts", {}).get("incidents_total") or manifest.get("counts", {}).get("incidents")
     if expected is not None and int(expected) > 0 and len(features) == 0:
