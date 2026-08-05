@@ -4,17 +4,23 @@ const event = {
   type: 'Feature',
   geometry: { type: 'Point', coordinates: [-0.382, 39.899] },
   properties: {
-    id: 'event-1',
-    type: 'wildfire',
-    title: 'Incendio cerca de Eslida',
-    summary: 'CV-223 Km4',
-    status: 'activo',
-    status_source_id: '112cv',
-    severity: 'alta',
-    precision_m: 375,
-    last_observed_at: '2026-08-04T20:51:00Z',
-    updated_at: '2026-08-05T01:00:00Z',
-    sources: ['wildfire-public'],
+            id: 'event-1',
+            type: 'wildfire',
+            subtype: 'ambos',
+            title: 'Incendio cerca de Eslida',
+            summary: 'CV-223 Km4',
+            status: 'activo',
+            status_source_id: '112cv',
+            severity: 'alta',
+            severity_source_id: 'wildfire-public',
+            precision_m: 375,
+            confidence: null,
+            valid_from: '2026-08-04T20:51:00Z',
+            valid_to: null,
+            last_observed_at: '2026-08-04T20:51:00Z',
+            created_at: '2026-08-05T01:00:00Z',
+            updated_at: '2026-08-05T01:00:00Z',
+            sources: ['wildfire-public'],
     attributes: {},
     observations_count: 1,
     revisions_count: 0,
@@ -51,10 +57,50 @@ test('operations wildfire demo flow', async ({ page }) => {
     }),
   );
   await page.route('**/v1/events/event-1/impacts', (route) =>
-    route.fulfill({ json: assetCreated ? [{ id: 'impact-1', event_id: 'event-1', asset_id: 'asset-1', asset_name: 'Camping demo', distance_m: 1400, intersects: false, reasons: ['Incendio cerca de Eslida está a 1400 m de Camping demo'] }] : [] }),
+    route.fulfill({ json: assetCreated ? [{ id: 'impact-1', event_id: 'event-1', asset_id: 'asset-1', asset_name: 'Camping demo', distance_m: 1400, intersects: false, score: 0.98, reasons: ['Incendio cerca de Eslida está a 1400 m de Camping demo'] }] : [] }),
+  );
+  await page.route('**/v1/events/event-1/timeline', (route) =>
+    route.fulfill({
+      json: {
+        event_id: 'event-1',
+        generated_at: '2026-08-05T01:00:00Z',
+        points: [{ kind: 'observation', timestamp: '2026-08-04T20:51:00Z', source_id: 'wildfire-public', label: 'Observacion wildfire-public', precision_m: 375, payload: {} }],
+      },
+    }),
   );
   await page.route('**/v1/sources/health', (route) =>
-    route.fulfill({ json: [{ id: 'wildfire-public', name: 'Wildfire public', kind: 'wildfire', enabled: true, criticality: 'high', last_run: { status: 'success', latest_observed_at: '2026-08-04T20:51:00Z', records_accepted: 1, records_rejected: 0 } }] }),
+    route.fulfill({ json: [{ id: 'wildfire-public', name: 'Wildfire public', kind: 'wildfire', enabled: true, criticality: 'high', freshness_status: 'success', data_age_seconds: 7200, pipeline_age_seconds: 240, records: 1, precision_m: 375, last_run: { status: 'success', latest_observed_at: '2026-08-04T20:51:00Z', records_accepted: 1, records_rejected: 0 } }] }),
+  );
+  await page.route('**/v1/operations/summary', (route) =>
+    route.fulfill({
+      json: {
+        generated_at: '2026-08-05T01:00:00Z',
+        events_total: 1,
+        events_by_status: { activo: 1 },
+        events_by_type: { wildfire: 1 },
+        events_by_source: { 'wildfire-public': 1 },
+        events_recent_24h: 1,
+        events_with_impact: assetCreated ? 1 : 0,
+        open_alerts: ruleCreated ? 1 : 0,
+        assets_total: assetCreated ? 1 : 0,
+        sources_total: 1,
+        sources_degraded: [],
+        latest_observed_at: '2026-08-04T20:51:00Z',
+        latest_ingested_at: '2026-08-05T01:00:00Z',
+        manifest: {
+          generated_at: '2026-08-04T22:51:00Z',
+          pipeline_age_seconds: 240,
+          data_age_seconds: { 'wildfire-public': 7200 },
+          worst_data_age_seconds: 7200,
+          counts: { hotspots_24h: 33 },
+          frp_total_mw: 426.36,
+          degraded: false,
+          degraded_reason: null,
+          demo: true,
+          demo_reason: 'Reduced fixture for GeoOps MVP tests.',
+        },
+      },
+    }),
   );
   await page.route('**/v1/assets', async (route) => {
     if (route.request().method() === 'POST') {
@@ -77,18 +123,27 @@ test('operations wildfire demo flow', async ({ page }) => {
 
   await page.goto('/operations');
   await expect(page.getByText('Incendio cerca de Eslida').first()).toBeVisible();
-  await expect(page.getByText(/observed_at/)).toBeVisible();
-  const assetForm = page.locator('form').filter({ hasText: 'Activo puntual' });
+  await expect(page.getByText(/Datos demo/)).toBeVisible();
+  await expect(page.getByText(/Edad dato/)).toBeVisible();
+  await page.getByRole('button', { name: /SO/ }).click();
+  await expect(page.getByText(/Salud de fuentes/)).toBeVisible();
+  await page.getByRole('button', { name: /LA/ }).click();
+  await expect(page.getByText(/Mapas base|registry inicial/)).toBeVisible();
+  await page.getByRole('button', { name: /AS/ }).click();
+  const assetForm = page.locator('form').filter({ hasText: 'Crear activo' });
   await assetForm.getByPlaceholder('Nombre').fill('Camping demo');
   await assetForm.getByPlaceholder('Tipo').fill('camping');
   await assetForm.getByPlaceholder('Longitud').fill('-0.37');
   await assetForm.getByPlaceholder('Latitud').fill('39.9');
-  await assetForm.getByRole('button', { name: 'Crear activo' }).click();
-  await expect(assetForm.locator('.asset-chip').getByText('Camping demo')).toBeVisible();
-  const ruleForm = page.locator('form').filter({ hasText: 'Regla' });
+  await assetForm.getByRole('button', { name: /Crear activo/ }).click();
+  await expect(page.getByText('Camping demo')).toBeVisible();
+  await page.getByRole('button', { name: /AL/ }).click();
+  const ruleForm = page.locator('form').filter({ hasText: 'Crear regla' });
   await ruleForm.locator('select[name="asset_id"]').selectOption('asset-1');
   await ruleForm.getByRole('button', { name: 'Crear regla' }).click();
-  await expect(page.getByText(/1400 m/)).toBeVisible();
+  await page.getByRole('button', { name: 'Impactos' }).click();
+  await expect(page.getByText(/1.4 km/)).toBeVisible();
+  await page.getByRole('button', { name: /AL/ }).click();
   await page.getByRole('button', { name: 'Reconocer' }).click();
   await expect(page.getByText('acknowledged')).toBeVisible();
 });

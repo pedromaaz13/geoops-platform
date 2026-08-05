@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { App } from './App';
+import { AppProviders } from './app/providers';
 
 const event = {
   type: 'Feature',
@@ -53,9 +54,45 @@ function mockFetch() {
         ]));
       }
       if (url.includes('/v1/events/event-1/impacts')) return Promise.resolve(Response.json([]));
+      if (url.includes('/v1/events/event-1/timeline')) {
+        return Promise.resolve(Response.json({
+          event_id: 'event-1',
+          generated_at: '2026-08-05T01:00:00Z',
+          points: [{ kind: 'observation', timestamp: '2026-08-04T20:51:00Z', source_id: 'wildfire-public', label: 'Observacion wildfire-public', precision_m: 375, payload: {} }],
+        }));
+      }
       if (url.includes('/v1/events/event-1')) return Promise.resolve(Response.json(event));
       if (url.includes('/v1/sources/health')) {
-        return Promise.resolve(Response.json([{ id: 'wildfire-public', name: 'Wildfire', kind: 'wildfire', enabled: true, criticality: 'high', last_run: { status: 'success', latest_observed_at: '2026-08-04T20:51:00Z', records_accepted: 1, records_rejected: 0 } }]));
+        return Promise.resolve(Response.json([{ id: 'wildfire-public', name: 'Wildfire', kind: 'wildfire', enabled: true, criticality: 'high', freshness_status: 'success', data_age_seconds: 7200, pipeline_age_seconds: 240, records: 1, precision_m: 375, last_run: { status: 'success', latest_observed_at: '2026-08-04T20:51:00Z', records_accepted: 1, records_rejected: 0 } }]));
+      }
+      if (url.includes('/v1/operations/summary')) {
+        return Promise.resolve(Response.json({
+          generated_at: '2026-08-05T01:00:00Z',
+          events_total: 1,
+          events_by_status: { activo: 1 },
+          events_by_type: { wildfire: 1 },
+          events_by_source: { 'wildfire-public': 1 },
+          events_recent_24h: 1,
+          events_with_impact: 0,
+          open_alerts: 0,
+          assets_total: 0,
+          sources_total: 1,
+          sources_degraded: [],
+          latest_observed_at: '2026-08-04T20:51:00Z',
+          latest_ingested_at: '2026-08-05T01:00:00Z',
+          manifest: {
+            generated_at: '2026-08-04T22:51:00Z',
+            pipeline_age_seconds: 240,
+            data_age_seconds: { 'wildfire-public': 7200 },
+            worst_data_age_seconds: 7200,
+            counts: { hotspots_24h: 33 },
+            frp_total_mw: 426.36,
+            degraded: false,
+            degraded_reason: null,
+            demo: true,
+            demo_reason: 'Reduced fixture for GeoOps MVP tests.',
+          },
+        }));
       }
       if (url.includes('/v1/assets')) return Promise.resolve(Response.json([]));
       if (url.includes('/v1/alerts')) return Promise.resolve(Response.json([]));
@@ -68,11 +105,13 @@ describe('App', () => {
   it('renders operations list and provenance fields', async () => {
     mockFetch();
 
-    render(<App />);
+    render(<AppProviders><App /></AppProviders>);
 
     await waitFor(() => expect(screen.getAllByText('Incendio cerca de Eslida').length).toBeGreaterThan(0));
-    await waitFor(() => expect(screen.getByText(/observed_at/i)).toBeTruthy());
-    expect(screen.getByText(/ingested_at/i)).toBeTruthy();
-    expect(screen.getByText(/112cv/i)).toBeTruthy();
+    await waitFor(() => expect(screen.getByText(/Datos demo/i)).toBeTruthy());
+    expect(screen.getByText(/Edad dato/i)).toBeTruthy();
+    expect(screen.getAllByText(/Pipeline/i).length).toBeGreaterThan(0);
+    expect(screen.getByRole('navigation', { name: /Navegacion GeoOps/i })).toBeTruthy();
+    expect(screen.getAllByText(/112cv/i).length).toBeGreaterThan(0);
   });
 });

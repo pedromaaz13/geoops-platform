@@ -1,0 +1,328 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl';
+
+import { layerRegistry, type LayerId } from '../../registries/layers';
+import type { AssetDto, EventFeature, ImpactDto } from '../../types';
+
+interface OperationsMapProps {
+  events: EventFeature[];
+  assets: AssetDto[];
+  impacts: ImpactDto[];
+  selectedEventId: string | null;
+  visibleLayers: Record<LayerId, boolean>;
+  basemap: 'dark' | 'light' | 'satellite';
+  focusCoordinates: [number, number] | null;
+  onSelectEvent: (eventId: string) => void;
+  onBoundsChange: (bounds: [number, number, number, number] | null) => void;
+}
+
+function eventsCollection(events: EventFeature[], selectedEventId: string | null) {
+  return {
+    type: 'FeatureCollection' as const,
+    features: events.map((event) => ({
+      ...event,
+      properties: {
+        ...event.properties,
+        selected: event.properties.id === selectedEventId,
+      },
+    })),
+  };
+}
+
+function assetsCollection(assets: AssetDto[]) {
+  return {
+    type: 'FeatureCollection' as const,
+    features: assets.map((asset) => ({
+      type: 'Feature' as const,
+      geometry: { type: 'Point' as const, coordinates: [asset.longitude, asset.latitude] },
+      properties: { id: asset.id, name: asset.name, criticality: asset.criticality, type: asset.asset_type },
+    })),
+  };
+}
+
+function impactsCollection(events: EventFeature[], assets: AssetDto[], impacts: ImpactDto[]) {
+  return {
+    type: 'FeatureCollection' as const,
+    features: impacts.flatMap((impact) => {
+      const event = events.find((candidate) => candidate.properties.id === impact.event_id);
+      const asset = assets.find((candidate) => candidate.id === impact.asset_id);
+      if (!event || !asset) return [];
+      return [
+        {
+          type: 'Feature' as const,
+          geometry: {
+            type: 'LineString' as const,
+            coordinates: [event.geometry.coordinates, [asset.longitude, asset.latitude]],
+          },
+          properties: {
+            id: impact.id,
+            distance_m: impact.distance_m,
+            score: impact.score,
+          },
+        },
+      ];
+    }),
+  };
+}
+
+type MutableGeoJsonSource = {
+  setData: (data: Parameters<GeoJSONSource['setData']>[0]) => void;
+};
+
+function hasSetData(source: unknown): source is MutableGeoJsonSource {
+  return typeof (source as { setData?: unknown } | undefined)?.setData === 'function';
+}
+
+function setSourceData(map: MapLibreMap | null, sourceId: string, data: Parameters<GeoJSONSource['setData']>[0]) {
+  const source = map?.getSource(sourceId);
+  if (hasSetData(source)) {
+    source.setData(data);
+  }
+}
+
+export function OperationsMap({
+  events,
+  assets,
+  impacts,
+  selectedEventId,
+  visibleLayers,
+  basemap,
+  focusCoordinates,
+  onSelectEvent,
+  onBoundsChange,
+}: OperationsMapProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<MapLibreMap | null>(null);
+  const [mapStatus, setMapStatus] = useState(
+    import.meta.env.MODE === 'test' ? 'Mapa omitido en tests unitarios' : 'Inicializando mapa',
+  );
+  const eventData = useMemo(() => eventsCollection(events, selectedEventId), [events, selectedEventId]);
+  const assetData = useMemo(() => assetsCollection(assets), [assets]);
+  const impactData = useMemo(() => impactsCollection(events, assets, impacts), [assets, events, impacts]);
+
+  useEffect(() => {
+    if (import.meta.env.MODE === 'test' || !containerRef.current) return;
+    let disposed = false;
+
+    async function createMap() {
+      try {
+        const maplibregl = await import('maplibre-gl');
+        await import('maplibre-gl/dist/maplibre-gl.css');
+        if (!containerRef.current || disposed) return;
+
+        const map = new maplibregl.Map({
+          container: containerRef.current,
+          center: events[0]?.geometry.coordinates ?? [-3.7, 40.4],
+          zoom: events.length ? 6 : 4,
+          attributionControl: { compact: true },
+          style: {
+            version: 8,
+            sources: {
+              dark: {
+                type: 'raster',
+                tiles: ['https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'],
+                tileSize: 256,
+                attribution: 'OpenStreetMap contributors, CARTO',
+              },
+              light: {
+                type: 'raster',
+                tiles: ['https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'],
+                tileSize: 256,
+                attribution: 'OpenStreetMap contributors, CARTO',
+              },
+              satellite: {
+                type: 'raster',
+                tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+                tileSize: 256,
+                attribution: 'Esri, Maxar, Earthstar Geographics',
+              },
+              events: { type: 'geojson', data: eventData },
+              assets: { type: 'geojson', data: assetData },
+              impacts: { type: 'geojson', data: impactData },
+            },
+            layers: [
+              { id: 'background', type: 'background', paint: { 'background-color': '#07101A' } },
+              { id: 'basemap-dark', type: 'raster', source: 'dark', paint: { 'raster-opacity': 0.88 } },
+              { id: 'basemap-light', type: 'raster', source: 'light', layout: { visibility: 'none' }, paint: { 'raster-opacity': 0.9 } },
+              { id: 'basemap-satellite', type: 'raster', source: 'satellite', layout: { visibility: 'none' }, paint: { 'raster-opacity': 0.82 } },
+              {
+                id: 'uncertainty',
+                type: 'circle',
+                source: 'events',
+                paint: {
+                  'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 8, 8, 26, 12, 58],
+                  'circle-color': '#FF9E2C',
+                  'circle-opacity': 0.14,
+                  'circle-stroke-color': '#FFD24A',
+                  'circle-stroke-opacity': 0.45,
+                  'circle-stroke-width': 1,
+                },
+              },
+              {
+                id: 'impacts',
+                type: 'line',
+                source: 'impacts',
+                paint: {
+                  'line-color': '#2CC7D4',
+                  'line-width': ['interpolate', ['linear'], ['zoom'], 4, 1.4, 10, 3],
+                  'line-opacity': 0.82,
+                  'line-dasharray': [1.5, 1.2],
+                },
+              },
+              {
+                id: 'assets',
+                type: 'circle',
+                source: 'assets',
+                paint: {
+                  'circle-radius': ['case', ['==', ['get', 'criticality'], 'high'], 6, 5],
+                  'circle-color': '#2CC7D4',
+                  'circle-stroke-color': '#F2F6FA',
+                  'circle-stroke-width': 2,
+                },
+              },
+              {
+                id: 'events',
+                type: 'circle',
+                source: 'events',
+                paint: {
+                  'circle-radius': ['case', ['boolean', ['get', 'selected'], false], 11, 7],
+                  'circle-color': [
+                    'match',
+                    ['get', 'severity'],
+                    'extrema',
+                    '#E7354F',
+                    'alta',
+                    '#FF5C35',
+                    'media',
+                    '#FF9E2C',
+                    'baja',
+                    '#FFD24A',
+                    '#718398',
+                  ],
+                  'circle-stroke-color': ['case', ['boolean', ['get', 'selected'], false], '#F2F6FA', '#07101A'],
+                  'circle-stroke-width': ['case', ['boolean', ['get', 'selected'], false], 3, 1.5],
+                },
+              },
+              {
+                id: 'event-labels',
+                type: 'symbol',
+                source: 'events',
+                minzoom: 7,
+                layout: {
+                  'text-field': ['get', 'title'],
+                  'text-size': 11,
+                  'text-offset': [0, 1.35],
+                  'text-anchor': 'top',
+                },
+                paint: {
+                  'text-color': '#F2F6FA',
+                  'text-halo-color': '#07101A',
+                  'text-halo-width': 1.5,
+                },
+              },
+            ],
+          },
+        });
+
+        mapRef.current = map;
+        map.addControl(new maplibregl.NavigationControl({ visualizePitch: false }), 'top-right');
+        map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
+        map.on('load', () => {
+          setMapStatus('Mapa operativo');
+          if (events.length > 1) {
+            const bounds = new maplibregl.LngLatBounds(events[0].geometry.coordinates, events[0].geometry.coordinates);
+            events.slice(1).forEach((event) => bounds.extend(event.geometry.coordinates));
+            map.fitBounds(bounds, { padding: 72, maxZoom: 8, duration: 0 });
+          }
+        });
+        map.on('click', 'events', (event) => {
+          const id = event.features?.[0]?.properties?.id as string | undefined;
+          if (id) onSelectEvent(id);
+        });
+        map.on('moveend', () => {
+          const bounds = map.getBounds();
+          onBoundsChange([bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()]);
+        });
+      } catch (error) {
+        setMapStatus(`Fallo de mapa: ${error instanceof Error ? error.message : 'desconocido'}`);
+        onBoundsChange(null);
+      }
+    }
+
+    void createMap();
+
+    return () => {
+      disposed = true;
+      mapRef.current?.remove();
+      mapRef.current = null;
+    };
+    // El mapa se inicializa una sola vez; datos, capas, seleccion y camara se sincronizan con efectos separados.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    setSourceData(mapRef.current, 'events', eventData);
+  }, [eventData]);
+
+  useEffect(() => {
+    setSourceData(mapRef.current, 'assets', assetData);
+  }, [assetData]);
+
+  useEffect(() => {
+    setSourceData(mapRef.current, 'impacts', impactData);
+  }, [impactData]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    for (const definition of layerRegistry) {
+      if (map.getLayer(definition.id)) {
+        map.setLayoutProperty(definition.id, 'visibility', visibleLayers[definition.id] ? 'visible' : 'none');
+      }
+    }
+  }, [visibleLayers]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    for (const id of ['dark', 'light', 'satellite'] as const) {
+      map.setLayoutProperty(`basemap-${id}`, 'visibility', id === basemap ? 'visible' : 'none');
+    }
+  }, [basemap]);
+
+  useEffect(() => {
+    if (!focusCoordinates || !mapRef.current) return;
+    mapRef.current.flyTo({ center: focusCoordinates, zoom: Math.max(mapRef.current.getZoom(), 8), essential: true });
+  }, [focusCoordinates]);
+
+  return (
+    <section className="map-workspace" aria-label="Mapa operacional">
+      <div ref={containerRef} className="map-canvas" role="img" aria-label={mapStatus} />
+      <div className="fallback-map-grid" aria-hidden="true" />
+      <div className="fallback-markers" aria-hidden="true">
+        {events.map((event) => (
+          <span
+            className={event.properties.id === selectedEventId ? 'fallback-event selected' : 'fallback-event'}
+            key={event.properties.id}
+            style={{
+              left: `${((event.geometry.coordinates[0] + 10) / 14) * 100}%`,
+              top: `${(1 - (event.geometry.coordinates[1] - 35) / 8) * 100}%`,
+            }}
+          />
+        ))}
+        {assets.map((asset) => (
+          <span
+            className="fallback-asset"
+            key={asset.id}
+            style={{
+              left: `${((asset.longitude + 10) / 14) * 100}%`,
+              top: `${(1 - (asset.latitude - 35) / 8) * 100}%`,
+            }}
+          />
+        ))}
+      </div>
+      <div className="map-status" aria-live="polite">{mapStatus}</div>
+      <div className="map-crosshair" aria-hidden="true" />
+    </section>
+  );
+}
