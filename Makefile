@@ -8,7 +8,7 @@ endif
 GEOOPS_DATABASE_URL ?= postgresql://geoops:geoops@localhost:5432/geoops_dev
 GEOOPS_TEST_DATABASE_URL ?= $(GEOOPS_DATABASE_URL)
 
-.PHONY: setup dev stop migrate lint typecheck test test-unit test-integration build e2e check docker-check wait-db demo reset-demo
+.PHONY: setup dev stop migrate lint typecheck test test-unit test-integration build e2e check docker-check wait-db preflight-dev-ports demo reset-demo
 
 setup:
 	@test -f .env || cp .env.example .env
@@ -36,10 +36,24 @@ wait-db: docker-check
 	docker compose ps; \
 	exit 1
 
-dev: docker-check
+preflight-dev-ports:
+	@api_port=$${GEOOPS_API_PORT:-8000}; \
+	if command -v lsof >/dev/null && lsof -ti tcp:$$api_port >/dev/null 2>&1; then \
+		if curl -fsS "http://127.0.0.1:$$api_port/health" 2>/dev/null | grep -q '"service":"geoops-api"'; then \
+			echo "GeoOps API is already listening on $$api_port. Stop the existing dev server before running make dev again."; \
+			exit 1; \
+		else \
+			echo "Port $$api_port is already used by a non-GeoOps service. Stop it or set GEOOPS_API_PORT before running make dev."; \
+			echo "Inspect with: lsof -iTCP:$$api_port -sTCP:LISTEN -nP"; \
+			exit 1; \
+		fi; \
+	fi
+
+dev: docker-check preflight-dev-ports
 	@echo "Starting PostGIS, FastAPI and the GeoOps web app."
 	@echo "API: http://127.0.0.1:$${GEOOPS_API_PORT:-8000}"
-	@echo "Web: http://127.0.0.1:5173"
+	@echo "Web: Vite starts at http://127.0.0.1:5173 and may use 5174-5179 if the port is busy."
+	@echo "Open the Local URL printed by Vite, then navigate to /operations."
 	@echo "Stop with Ctrl-C, then run 'make stop' to stop PostGIS."
 	docker compose up -d db
 	$(MAKE) wait-db

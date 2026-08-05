@@ -3,8 +3,11 @@ import type {
   AssetDto,
   EventCollection,
   EventFeature,
+  EventFilters,
+  EventTimelineDto,
   ImpactDto,
   ObservationDto,
+  OperationsSummaryDto,
   SourceHealthDto,
 } from './types';
 
@@ -24,8 +27,24 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
-export async function fetchEvents(): Promise<EventCollection> {
-  return request<EventCollection>('/v1/events?bbox=-19,27,5,44.5&types=wildfire&limit=200');
+function timeWindowStart(windowName: EventFilters['timeWindow']): string {
+  const now = Date.now();
+  const hours = { '6h': 6, '24h': 24, '3d': 72, '7d': 168 }[windowName];
+  return new Date(now - hours * 60 * 60 * 1000).toISOString();
+}
+
+export async function fetchEvents(filters?: Partial<EventFilters>): Promise<EventCollection> {
+  const params = new URLSearchParams({
+    bbox: '-19,27,5,44.5',
+    types: 'wildfire',
+    limit: '200',
+  });
+  if (filters?.timeWindow) params.set('from', timeWindowStart(filters.timeWindow));
+  if (filters?.status) params.set('status', filters.status);
+  if (filters?.source) params.set('sources', filters.source);
+  if (filters?.hasImpact) params.set('has_impact', 'true');
+  if (filters?.hasAlert) params.set('has_alert', 'true');
+  return request<EventCollection>(`/v1/events?${params.toString()}`);
 }
 
 export async function fetchEventDetail(eventId: string): Promise<EventFeature> {
@@ -36,8 +55,16 @@ export async function fetchObservations(eventId: string): Promise<ObservationDto
   return request<ObservationDto[]>(`/v1/events/${eventId}/observations`);
 }
 
+export async function fetchTimeline(eventId: string): Promise<EventTimelineDto> {
+  return request<EventTimelineDto>(`/v1/events/${eventId}/timeline`);
+}
+
 export async function fetchImpacts(eventId: string): Promise<ImpactDto[]> {
   return request<ImpactDto[]>(`/v1/events/${eventId}/impacts`);
+}
+
+export async function fetchOperationsSummary(): Promise<OperationsSummaryDto> {
+  return request<OperationsSummaryDto>('/v1/operations/summary');
 }
 
 export async function fetchSourcesHealth(): Promise<SourceHealthDto[]> {

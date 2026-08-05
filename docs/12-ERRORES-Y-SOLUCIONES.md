@@ -37,6 +37,42 @@ CSS inválido o una capa MapLibre no montada pueden pasar desapercibidos.
 
 **Regla:** probar estilos calculados, posición y presencia real de capas.
 
+### Un mapa "operativo" puede verse vacío
+
+MapLibre puede inicializar sin excepción mientras los tiles o WebGL no pintan
+como se espera en una captura o navegador concreto.
+
+**Regla:** el estado del mapa no basta; debe existir evidencia visual de eventos
+y activos. En `GEO-UI-002` se añade un overlay de fallback con coordenadas reales
+para que el usuario no vea una superficie muda si falla el render principal.
+
+### Vite puede cambiar de puerto y romper CORS
+
+Si `5173` esta ocupado, Vite puede arrancar en `5174` u otro puerto cercano. Si
+la API solo permite `5173`, el navegador muestra fallo de carga aunque FastAPI y
+PostGIS esten vivos.
+
+**Regla:** el entorno local debe permitir explicitamente los puertos Vite
+soportados o fallar con mensaje claro. En `GEO-UI-003` se permiten
+`127.0.0.1`/`localhost` en `5173-5179` y la UI distingue API no accesible, CORS,
+sin datos y demo no sembrada.
+
+### Otra API en 8000 puede parecer GeoOps
+
+En desarrollo local se detecto una API ajena respondiendo en `127.0.0.1:8000`
+con:
+
+```json
+{"status":"ok","metadata_store":"supabase"}
+```
+
+La UI de GeoOps intentaba consultar `/v1/operations/summary` contra ese proceso
+y recibia `404`.
+
+**Regla:** antes de arrancar `make dev`, comprobar que el puerto de API no esta
+ocupado o que `/health` identifica `service=geoops-api`. Se añade
+`make preflight-dev-ports`.
+
 ### Los E2E pueden usar un build viejo
 
 Un servidor reutilizado puede validar código anterior.

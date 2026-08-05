@@ -76,13 +76,15 @@ que completar el hueco con una suposición.
 ## 2. Antes de editar
 
 1. Leer la issue o tarea completa.
-2. Leer `docs/00-LEEME-PRIMERO.md`.
-3. Leer el ADR relacionado.
-4. Buscar el punto de entrada con `rg`, búsqueda de símbolos o búsqueda de código.
-5. Leer solo los archivos necesarios.
-6. Revisar pruebas existentes.
-7. Identificar si ya existe una utilidad reutilizable.
-8. Confirmar si la tarea cambia:
+2. Crear o actualizar la tarea activa en `.ai/tasks/` cuando el cambio toque
+   mas de un modulo, UI visible, pipeline, API o reglas de agente.
+3. Leer `docs/00-LEEME-PRIMERO.md`.
+4. Leer el ADR relacionado.
+5. Buscar el punto de entrada con `rg`, búsqueda de símbolos o búsqueda de código.
+6. Leer solo los archivos necesarios.
+7. Revisar pruebas existentes.
+8. Identificar si ya existe una utilidad reutilizable.
+9. Confirmar si la tarea cambia:
    - contrato;
    - base de datos;
    - API;
@@ -92,6 +94,24 @@ que completar el hueco con una suposición.
    - dependencia de producción.
 
 Si cambia alguno de esos puntos, debe existir un plan antes de editar.
+
+### 2.1 Router de lectura
+
+Abre solo la fuente que responde a la pregunta. No conviertas el arranque de una
+tarea en una lectura indiscriminada.
+
+| Pregunta del agente | Fuente de verdad |
+|---|---|
+| Producto y arquitectura inicial | `docs/01-PRODUCTO-Y-ARQUITECTURA-INICIAL.md` |
+| Estado real actual | `docs/11-ESTADO-DEL-PROYECTO.md` |
+| Pipeline y transformaciones | `docs/03-PIPELINE-Y-TRANSFORMACIONES.md` |
+| Backend y APIs | `docs/04-ARQUITECTURA-BACKEND.md`, `docs/06-CONTRATOS-Y-APIS.md` |
+| Modelo de datos | `docs/05-ONTOLOGIA-Y-MODELO-DATOS.md` |
+| Fuentes | `docs/07-FUENTES-Y-ADAPTADORES.md`, `docs/sources/` |
+| Interfaz y visual | `docs/09-INTERFAZ-Y-VISUALIZACION.md`, `docs/design/` |
+| Pruebas e invariantes | `docs/08-PRUEBAS-INVARIANTES-OBSERVABILIDAD.md` |
+| Errores conocidos | `docs/12-ERRORES-Y-SOLUCIONES.md` |
+| Trabajo activo | `.ai/tasks/` |
 
 ---
 
@@ -218,7 +238,77 @@ Se elimina:
 
 ---
 
-## 8. Fuentes externas
+## 8. UI operacional y validación con datos
+
+La UI de GeoOps es software operacional. No se acepta una pantalla que parezca
+correcta solo con el caso feliz.
+
+### 8.1 Reglas duras de UI
+
+- El mapa es la superficie principal. Los paneles deben poder cerrarse,
+  contraerse o quedar fuera del camino cuando tapen la lectura operacional.
+- No se permite un mapa decorativo: debe mostrar teselas reales o un fallback
+  declarado con eventos/activos en coordenadas reales y aviso visible.
+- No se autoselecciona un evento salvo que la tarea lo pida explicitamente.
+- Si `make demo` genera eventos, la UI no puede mostrar cero sin explicar si la
+  causa es API, CORS, filtros, bbox, puerto equivocado o datos ausentes.
+- `Load failed` nunca es un estado final aceptable. Debe traducirse a una causa
+  accionable: API no accesible, CORS, endpoint incorrecto, sin datos o ejecuta
+  `make demo`.
+- La navegacion principal no debe duplicarse. Si hay rail y tabs, cada una debe
+  tener una funcion distinta.
+- No debe existir scroll global en desktop ni mobile. Solo listas, fichas o
+  drawers concretos pueden desplazarse.
+- Todo panel flotante debe tener estado cerrado y recuperable.
+- La interfaz debe ser multievento: wildfire es una vertical, no la identidad de
+  toda la plataforma.
+
+### 8.2 Matriz minima de escenarios UI
+
+Antes de cerrar una tarea de interfaz, probar como minimo:
+
+```text
+datos demo normales
+sin eventos
+muchos eventos
+nombres largos
+precision ausente
+fuente success
+fuente partial/stale/failed
+API caida o puerto incorrecto
+desktop 1440
+desktop 1280
+mobile
+```
+
+Si un escenario aun no tiene fixture o test, se documenta como riesgo vivo y no
+se declara paridad.
+
+### 8.3 Evidencia visual
+
+- Todo cambio visible necesita captura desktop y mobile.
+- Las capturas deben demostrar datos visibles cuando se ejecuto `make demo`.
+- No se aceptan capturas con KPIs cortados, paneles pisados, textos ocultos o
+  mapa vacio sin aviso.
+- Playwright valida comportamiento; el navegador real valida la lectura visual.
+  Ambos son necesarios cuando la tarea cambia layout o interaccion.
+
+### 8.4 Datos antes que pixels
+
+Antes de pulir estilos, confirmar:
+
+```bash
+curl -fsS http://127.0.0.1:8000/health
+curl -fsS http://127.0.0.1:8000/ready
+curl -fsS http://127.0.0.1:8000/v1/operations/summary
+```
+
+La respuesta de `/health` debe incluir `service=geoops-api`. Si responde otro
+servicio, la prueba UI no es valida.
+
+---
+
+## 9. Fuentes externas
 
 Toda fuente nueva necesita:
 
@@ -264,7 +354,7 @@ Cuando un parser falle en producción:
 
 ---
 
-## 9. Validación
+## 10. Validación
 
 Orden:
 
@@ -300,7 +390,7 @@ Reglas:
 
 ---
 
-## 10. Documentación
+## 11. Documentación
 
 Cada tipo de información tiene una única ubicación.
 
@@ -332,7 +422,7 @@ Actualizar documentación en la misma tarea cuando cambie:
 
 ---
 
-## 11. Comunicación de cierre
+## 12. Comunicación de cierre
 
 El cierre de una tarea debe incluir:
 
@@ -366,7 +456,7 @@ No pegar logs completos. Incluir solo líneas decisivas y comandos para reproduc
 
 ---
 
-## 12. Autonomía
+## 13. Autonomía
 
 Puede hacerse sin preguntar:
 
@@ -393,7 +483,7 @@ Requiere confirmación:
 
 ---
 
-## 13. Convenciones Git
+## 14. Convenciones Git
 
 - Una rama por hito o issue.
 - No trabajar directamente sobre `main`.
@@ -405,3 +495,4 @@ Requiere confirmación:
   - documentación;
   - evidencia visual cuando proceda;
   - riesgos conocidos.
+- No hacer merge sin validacion completa y aprobacion explicita del usuario.

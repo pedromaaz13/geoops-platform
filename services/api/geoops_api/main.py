@@ -17,6 +17,7 @@ from geoops_api.operations import (
     create_alert_rule,
     create_asset,
     delete_asset,
+    event_timeline,
     get_event_detail,
     list_alert_rules,
     list_alerts,
@@ -28,6 +29,7 @@ from geoops_api.operations import (
     list_source_health,
     list_source_runs,
     list_sources,
+    operations_summary,
 )
 from geoops_api.readiness import check_postgis_ready
 
@@ -101,6 +103,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         from_time: str | None = Query(default=None, alias="from"),
         to_time: str | None = Query(default=None, alias="to"),
         updated_after: str | None = None,
+        status: str | None = None,
+        sources: str | None = None,
+        has_impact: bool | None = None,
+        has_alert: bool | None = None,
         limit: int = 100,
         cursor: str | None = None,
         session: Session = DB_SESSION,
@@ -112,9 +118,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             from_time=from_time,
             to_time=to_time,
             updated_after=updated_after,
+            status=status,
+            sources=sources,
+            has_impact=has_impact,
+            has_alert=has_alert,
             limit=limit,
             cursor=cursor,
         )
+
+    @app.get("/v1/operations/summary")
+    def api_operations_summary(session: Session = DB_SESSION) -> dict[str, Any]:
+        return operations_summary(session)
 
     @app.get("/v1/events/{event_id}")
     def api_event_detail(event_id: str, session: Session = DB_SESSION) -> dict[str, Any]:
@@ -130,6 +144,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/v1/events/{event_id}/revisions")
     def api_event_revisions(event_id: str, session: Session = DB_SESSION) -> list[dict[str, Any]]:
         return list_event_revisions(session, event_id)
+
+    @app.get("/v1/events/{event_id}/timeline")
+    def api_event_timeline(event_id: str, session: Session = DB_SESSION) -> dict[str, Any]:
+        timeline = event_timeline(session, event_id)
+        if timeline is None:
+            raise HTTPException(status_code=404, detail="event not found")
+        return timeline
 
     @app.get("/v1/sources")
     def api_sources(session: Session = DB_SESSION) -> list[dict[str, Any]]:

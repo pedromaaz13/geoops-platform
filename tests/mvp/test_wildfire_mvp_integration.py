@@ -118,6 +118,21 @@ def test_api_asset_impact_rule_alert_and_acknowledge_flow() -> None:
     assert observation_response.json()[0]["observed_at"] is not None
     assert observation_response.json()[0]["ingested_at"] is not None
 
+    timeline_response = asyncio.run(_request("GET", f"/v1/events/{event_id}/timeline"))
+    assert timeline_response.status_code == 200
+    assert timeline_response.json()["points"][0]["kind"] == "observation"
+
+    summary_response = asyncio.run(_request("GET", "/v1/operations/summary"))
+    assert summary_response.status_code == 200
+    summary = summary_response.json()
+    assert summary["events_total"] == 2
+    assert summary["manifest"]["demo"] is True
+    assert summary["latest_observed_at"] is not None
+
+    filtered_response = asyncio.run(_request("GET", "/v1/events?types=wildfire&sources=wildfire-public&status=activo"))
+    assert filtered_response.status_code == 200
+    assert len(filtered_response.json()["features"]) >= 1
+
     asset_response = asyncio.run(
         _request(
             "POST",
@@ -162,6 +177,10 @@ def test_api_asset_impact_rule_alert_and_acknowledge_flow() -> None:
     acknowledged = asyncio.run(_request("POST", f"/v1/alerts/{alerts[0]['id']}/acknowledge"))
     assert acknowledged.status_code == 200
     assert acknowledged.json()["status"] == "acknowledged"
+
+    impact_filtered_response = asyncio.run(_request("GET", "/v1/events?types=wildfire&has_impact=true"))
+    assert impact_filtered_response.status_code == 200
+    assert len(impact_filtered_response.json()["features"]) >= 1
 
 
 @pytest.mark.integration
