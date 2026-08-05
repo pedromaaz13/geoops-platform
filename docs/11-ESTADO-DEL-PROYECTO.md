@@ -29,6 +29,7 @@ Producción: pendiente
 | GEO-009 Mapa/lista | absorbido por MVP | MapLibre + lista en `/operations` |
 | GEO-010 Ficha | absorbido por MVP | detalle con observaciones, impactos y procedencia |
 | GEO-UI-002 Paridad wildfire/UI | parcial | rama `codex/geoops-wildfire-parity-and-ui-rebuild`; auditoria `docs/audits/WILDFIRE-PARITY-AUDIT.md`; capturas en `artifacts/screenshots/`; consola map-first con source health, timeline, capas, lista viewport y ficha flotante |
+| GEO-UI-003 Quality system pass | completado en rama | rama `codex/geoops-ui-quality-system-pass`; CORS local ampliado, rail colapsable, tabs workspace/detalle, tooltips, controles visuales, E2E desktop/mobile, capturas en `artifacts/screenshots/` y reglas `docs/design/GEOOPS_UI_QUALITY_RULES.md` |
 | GEO-011 Capas | iniciado | registry inicial de eventos, incertidumbre, activos e impactos; sin hotspots/perimetros/viento/trafico |
 | GEO-012 CI | preparado | `make check` comparte puertas locales y CI |
 
@@ -50,6 +51,11 @@ en la rama `codex/mvp-wildfire-vertical-slice`.
 Vitest, build frontend, Playwright mockeado, PostGIS healthy, `/health`, `/ready`,
 `make demo` y pruebas de integración MVP. `make check` queda pendiente de la
 validación final de esta rama.
+Última validación local de `GEO-UI-003`: `docker compose config`, PostGIS
+healthy, `/health`, `/ready`, resumen demo con 2 eventos, `make lint`,
+`make typecheck`, `make test`, `make build`, `make e2e`, `make check` y
+`make demo` terminados correctamente. Warnings vivos: chunk grande de MapLibre
+en build/E2E y avisos `NO_COLOR`/`FORCE_COLOR` de Playwright.
 
 ## Fuentes conectadas
 
@@ -65,3 +71,12 @@ Ninguno para el MVP wildfire.
 2026-08-05: `GEO-UI-002` reconstruye la consola `/operations` hacia paridad
 wildfire. Estado: parcial hasta ejecutar `make check` final y resolver los
 pendientes vivos de auditoria que se consideren bloqueantes para merge.
+
+2026-08-05: `GEO-UI-003` inicia pase de calidad de la consola operacional con
+rail tipo GIS/BigQuery, tabs, tooltips, controles compactos y carga local mas
+robusta cuando Vite usa puertos alternativos.
+
+2026-08-05: `GEO-UI-003` queda validado en rama con capturas desktop, mobile y
+rail tooltip. No declara paridad final wildfire: siguen fuera gazetteer IGN,
+filtros sensor/confianza/origen y pruebas equivalentes completas del visor
+original.

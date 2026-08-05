@@ -35,6 +35,19 @@ equivalente al visor original, los filtros de sensor/confianza/origen no se
 muestran hasta estabilizar contrato y la suite de pruebas sigue siendo más
 pequeña que la del visor heredado.
 
+Tras `GEO-UI-003`, la consola recibe un pase de calidad visual e interaccion:
+
+- CORS local preparado para Vite en `5173-5179` y errores accionables de API,
+  CORS, datos vacios o demo no sembrada;
+- rail izquierdo colapsable/expandible con iconos, badges, estado activo y
+  tooltips;
+- tabs superiores para `Operaciones`, `Fuentes`, `Activos`, `Alertas` y
+  `Analisis`;
+- tabs de ficha con semantica `tablist` y persistencia en URL;
+- controles compactos para selects, switches, capas y filtros;
+- empty states accionables cuando no hay datos o los filtros ocultan eventos;
+- reglas de calidad UI en `docs/design/GEOOPS_UI_QUALITY_RULES.md`.
+
 ---
 
 La consola operacional se inspira en el patrón de Disaster Ninja: mapa central,
