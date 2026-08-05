@@ -106,7 +106,9 @@ Piezas existentes:
   el ultimo estado valido, se guarda raw y el `SourceRun` queda fallido con
   `error_type="suspicious_empty"`;
 - source health `GEO-WF-004` con edad de descarga, edad del dato, ultimo exito,
-  TTL y razon de stale.
+  TTL y razon de stale;
+- filtros `GEO-WF-005` por origen, sensor y confianza;
+- reconciliacion `GEO-WF-006` oficial/satelite por ventana temporal y precision.
 
 ### Frontend
 
@@ -129,12 +131,11 @@ Piezas existentes:
 
 - No hay paridad completa con `incendios_forestales_app`.
 - No hay gazetteer IGN ni buscador territorial equivalente.
-- No estan los filtros de sensor, confianza, origen y precision al nivel del
-  visor.
+- No hay filtros de precision geografica ni vocabulario real ampliado por fuente.
 - No estan portadas cuotas ni limitaciones especificas por fuente real.
 - No hay suite de invariantes tan amplia como la del visor original.
 - No hay adaptadores reales AEMET/DGT ni segunda vertical.
-- No hay reconciliacion oficial/satelite por tolerancia y ventana temporal.
+- No hay motor generico de reconciliacion multiadaptador fuera de wildfire.
 
 ### UI pendiente
 
@@ -252,8 +253,8 @@ Conclusiones:
 
 - GeoOps tiene flujo MVP wildfire end-to-end, no paridad completa.
 - Falta suite de invariantes equivalente al visor.
-- Falta exponer filtros wildfire de origen/sensor/confianza.
-- Falta reconciliacion oficial/satelite por tolerancia y ventana temporal.
+- Falta fixture ampliado de muchos eventos y degradaciones.
+- Falta reproceso desde raw.
 
 Actualizacion `GEO-WF-002`:
 
@@ -265,6 +266,9 @@ Actualizacion `GEO-WF-002`:
   `wildfire-public`.
 - `GEO-WF-004` anade stale real separando descarga, dato, ultimo exito, TTL y
   razon de stale.
+- `GEO-WF-005` anade filtros `origins`, `sensors` y `min_confidence`.
+- `GEO-WF-006` anade reconciliacion oficial/satelite MVP por tolerancia y
+  ventana temporal.
 
 
 ### CI y pruebas

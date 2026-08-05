@@ -8,7 +8,14 @@ import pytest
 from geoops_api.config import Settings
 from geoops_api.db import create_session_factory
 from geoops_api.main import create_app
-from geoops_api.models import Event, EventRevision, Observation, RawPayload, SourceRun
+from geoops_api.models import (
+    Event,
+    EventObservation,
+    EventRevision,
+    Observation,
+    RawPayload,
+    SourceRun,
+)
 from geoops_api.time import now_utc
 from geoops_api.wildfire_ingest import WildfireFeedError, ingest_wildfire_public
 from sqlalchemy import text
@@ -64,6 +71,71 @@ def _empty_wildfire_fixture(tmp_path: Path) -> Path:
     incidents["features"] = []
     incidents_path.write_text(json.dumps(incidents), encoding="utf-8")
     return target
+
+
+def _fixture_copy(tmp_path: Path, name: str) -> Path:
+    target = tmp_path / name
+    target.mkdir()
+    for file_name in ("manifest.json", "sources.json", "incidents.geojson"):
+        (target / file_name).write_text((FIXTURE / file_name).read_text(encoding="utf-8"), encoding="utf-8")
+    return target
+
+
+def _write_incidents(target: Path, features: list[dict]) -> None:
+    manifest_path = target / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["counts"]["incidents_total"] = len(features)
+    manifest["counts"]["incidents_satellite_confirmed"] = sum(1 for feature in features if feature["properties"].get("satellite_confirmed"))
+    manifest["counts"]["incidents_official_only"] = sum(
+        1
+        for feature in features
+        if feature["properties"].get("official_confirmed") and not feature["properties"].get("satellite_confirmed")
+    )
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    incidents_path = target / "incidents.geojson"
+    incidents = json.loads(incidents_path.read_text(encoding="utf-8"))
+    incidents["features"] = features
+    incidents_path.write_text(json.dumps(incidents), encoding="utf-8")
+
+
+def _near_satellite_and_official_features() -> list[dict]:
+    incidents = json.loads((FIXTURE / "incidents.geojson").read_text(encoding="utf-8"))
+    satellite = json.loads(json.dumps(incidents["features"][0]))
+    official = json.loads(json.dumps(incidents["features"][1]))
+    satellite["properties"].update(
+        {
+            "id": "satellite-merge-candidate",
+            "origin": "satelite",
+            "satellite_confirmed": True,
+            "official_confirmed": False,
+            "confirmed_by": "",
+            "status": None,
+            "status_origen": "satelite",
+            "confidence": 0.62,
+            "first_detected": "2026-08-04T20:00:00Z",
+            "last_detected": "2026-08-04T20:00:00Z",
+        }
+    )
+    satellite["geometry"]["coordinates"] = [-0.38212408090101124, 39.89875585769801]
+    official["properties"].update(
+        {
+            "id": "official-merge-candidate",
+            "origin": "oficial",
+            "satellite_confirmed": False,
+            "official_confirmed": True,
+            "confirmed_by": "112cv",
+            "status": "activo",
+            "status_origen": "oficial",
+            "n_hotspots": 0,
+            "confidence": 0.84,
+            "first_detected": "2026-08-04T20:30:00Z",
+            "last_detected": "2026-08-04T20:30:00Z",
+            "position_precision_m": 100.0,
+        }
+    )
+    official["geometry"]["coordinates"] = [-0.3819240809010112, 39.89895585769801]
+    return [satellite, official]
 
 
 @pytest.mark.integration
@@ -143,6 +215,33 @@ def test_suspicious_empty_feed_after_recent_activity_is_rejected(tmp_path: Path)
     summary_response = asyncio.run(_request("GET", "/v1/operations/summary"))
     assert summary_response.status_code == 200
     assert summary_response.json()["events_total"] == events_before
+
+
+@pytest.mark.integration
+def test_api_filters_wildfire_by_origin_sensor_and_confidence() -> None:
+    _clean_database()
+    session_factory = create_session_factory()
+    with session_factory() as session:
+        ingest_wildfire_public(session, fixture=FIXTURE)
+
+    origin_response = asyncio.run(_request("GET", "/v1/events?types=wildfire&origins=satelite"))
+    assert origin_response.status_code == 200
+    origin_features = origin_response.json()["features"]
+    assert len(origin_features) == 1
+    assert origin_features[0]["properties"]["attributes"]["origin"] == "satelite"
+
+    sensor_response = asyncio.run(_request("GET", "/v1/events?types=wildfire&sensors=VIIRS_NOAA20_NRT"))
+    assert sensor_response.status_code == 200
+    assert len(sensor_response.json()["features"]) == 2
+
+    confidence_response = asyncio.run(_request("GET", "/v1/events?types=wildfire&min_confidence=0.7"))
+    assert confidence_response.status_code == 200
+    confidence_features = confidence_response.json()["features"]
+    assert len(confidence_features) == 1
+    assert confidence_features[0]["properties"]["confidence"] >= 0.7
+
+    invalid_response = asyncio.run(_request("GET", "/v1/events?types=wildfire&min_confidence=2"))
+    assert invalid_response.status_code == 400
 
 
 @pytest.mark.integration
@@ -242,6 +341,49 @@ def test_old_previous_activity_does_not_block_empty_feed(tmp_path: Path) -> None
         assert run is not None
         assert run.status == "empty"
         assert run.error_type is None
+
+
+@pytest.mark.integration
+def test_wildfire_reconciles_official_and_satellite_observations_by_tolerance(tmp_path: Path) -> None:
+    _clean_database()
+    target = _fixture_copy(tmp_path, "merge")
+    _write_incidents(target, _near_satellite_and_official_features())
+
+    session_factory = create_session_factory()
+    with session_factory() as session:
+        summary = ingest_wildfire_public(session, fixture=target)
+
+        assert summary.events_created == 1
+        assert summary.events_updated == 1
+        assert session.query(Event).count() == 1
+        assert session.query(Observation).count() == 2
+        assert session.query(EventObservation).count() == 2
+        event = session.query(Event).one()
+        assert event.subtype == "ambos"
+        assert event.status == "activo"
+        assert event.confidence == 0.84
+        assert set(event.attributes["upstream_incident_ids"]) == {
+            "satellite-merge-candidate",
+            "official-merge-candidate",
+        }
+        assert set(event.attributes["origins"]) == {"satelite", "oficial"}
+
+
+@pytest.mark.integration
+def test_wildfire_reconciliation_keeps_observations_outside_window_separate(tmp_path: Path) -> None:
+    _clean_database()
+    target = _fixture_copy(tmp_path, "no-merge")
+    features = _near_satellite_and_official_features()
+    features[1]["properties"]["first_detected"] = "2026-08-05T08:30:00Z"
+    features[1]["properties"]["last_detected"] = "2026-08-05T08:30:00Z"
+    _write_incidents(target, features)
+
+    session_factory = create_session_factory()
+    with session_factory() as session:
+        ingest_wildfire_public(session, fixture=target)
+
+        assert session.query(Event).count() == 2
+        assert session.query(Observation).count() == 2
 
 
 @pytest.mark.integration

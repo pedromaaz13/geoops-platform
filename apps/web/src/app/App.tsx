@@ -52,6 +52,9 @@ const emptyImpacts: ImpactDto[] = [];
 const defaultFilters: EventFilters = {
   status: '',
   source: '',
+  origin: '',
+  sensor: '',
+  minConfidence: '',
   timeWindow: '24h',
   hasImpact: false,
   hasAlert: false,
@@ -91,6 +94,9 @@ function initialFilters(): EventFilters {
   return {
     status: params.get('status') ?? defaultFilters.status,
     source: params.get('source') ?? defaultFilters.source,
+    origin: params.get('origin') ?? defaultFilters.origin,
+    sensor: params.get('sensor') ?? defaultFilters.sensor,
+    minConfidence: params.get('confidence') ?? defaultFilters.minConfidence,
     timeWindow: (params.get('time') as EventFilters['timeWindow']) ?? defaultFilters.timeWindow,
     hasImpact: params.get('impact') === '1',
     hasAlert: params.get('alert') === '1',
@@ -180,6 +186,9 @@ function useUrlSync(
     if (selectedEventId) params.set('event', selectedEventId);
     if (filters.status) params.set('status', filters.status);
     if (filters.source) params.set('source', filters.source);
+    if (filters.origin) params.set('origin', filters.origin);
+    if (filters.sensor) params.set('sensor', filters.sensor);
+    if (filters.minConfidence) params.set('confidence', filters.minConfidence);
     if (filters.timeWindow !== defaultFilters.timeWindow) params.set('time', filters.timeWindow);
     if (filters.hasImpact) params.set('impact', '1');
     if (filters.hasAlert) params.set('alert', '1');
@@ -764,6 +773,34 @@ function OverviewSection({
             value={filters.source}
             onChange={(event) => onFiltersChange({ ...filters, source: event.target.value })}
             placeholder="source_id"
+          />
+          <ControlSelect
+            ariaLabel="Origen wildfire"
+            value={filters.origin}
+            onChange={(value) => onFiltersChange({ ...filters, origin: value })}
+            options={[
+              { value: '', label: 'Todos los origenes' },
+              { value: 'satelite', label: 'Satelite' },
+              { value: 'oficial', label: 'Oficial' },
+              { value: 'ambos', label: 'Ambos' },
+            ]}
+          />
+          <input
+            aria-label="Filtrar por sensor"
+            value={filters.sensor}
+            onChange={(event) => onFiltersChange({ ...filters, sensor: event.target.value })}
+            placeholder="sensor"
+          />
+          <ControlSelect
+            ariaLabel="Confianza minima"
+            value={filters.minConfidence}
+            onChange={(value) => onFiltersChange({ ...filters, minConfidence: value })}
+            options={[
+              { value: '', label: 'Cualquier confianza' },
+              { value: '0.5', label: '>= 0.50' },
+              { value: '0.7', label: '>= 0.70' },
+              { value: '0.9', label: '>= 0.90' },
+            ]}
           />
           <ToggleField checked={filters.hasImpact} label="con impacto" onChange={(checked) => onFiltersChange({ ...filters, hasImpact: checked })} />
           <ToggleField checked={filters.hasAlert} label="con alerta" onChange={(checked) => onFiltersChange({ ...filters, hasAlert: checked })} />

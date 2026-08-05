@@ -42,6 +42,9 @@ export async function fetchEvents(filters?: Partial<EventFilters>): Promise<Even
   if (filters?.timeWindow) params.set('from', timeWindowStart(filters.timeWindow));
   if (filters?.status) params.set('status', filters.status);
   if (filters?.source) params.set('sources', filters.source);
+  if (filters?.origin) params.set('origins', filters.origin);
+  if (filters?.sensor) params.set('sensors', filters.sensor);
+  if (filters?.minConfidence) params.set('min_confidence', filters.minConfidence);
   if (filters?.hasImpact) params.set('has_impact', 'true');
   if (filters?.hasAlert) params.set('has_alert', 'true');
   return request<EventCollection>(`/v1/events?${params.toString()}`);

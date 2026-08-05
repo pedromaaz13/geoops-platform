@@ -6,6 +6,7 @@ import logging
 import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from math import asin, cos, radians, sin, sqrt
 from pathlib import Path
 from typing import Any, cast
 from uuid import uuid4
@@ -33,6 +34,8 @@ SOURCE_ID = "wildfire-public"
 RECONCILIATION_VERSION = "wildfire-upstream-id-v1"
 SUPPORTED_SCHEMA_VERSION = 1
 SUSPICIOUS_EMPTY_LOOKBACK_HOURS = 72
+RECONCILIATION_TIME_WINDOW_HOURS = 6
+RECONCILIATION_MIN_DISTANCE_M = 1_000
 RAW_ROOT = Path("var/raw")
 SPAIN_BBOX = (-19.0, 27.0, 5.0, 44.5)
 VALID_ORIGINS = {"satelite", "oficial", "ambos"}
@@ -118,6 +121,20 @@ def _json_payload(raw: bytes, name: str) -> Any:
         raise WildfireFeedError(f"{name} is not valid JSON") from exc
 
 
+def _confidence_from_props(props: dict[str, Any]) -> float | None:
+    raw_confidence = props.get("confidence")
+    raw_confidence_pct = props.get("confidence_pct")
+    if raw_confidence is not None:
+        value = float(raw_confidence)
+    elif raw_confidence_pct is not None:
+        value = float(raw_confidence_pct) / 100
+    else:
+        return None
+    if not 0 <= value <= 1:
+        raise ValueError("confidence must be between 0 and 1")
+    return value
+
+
 def _validate_feed(manifest: dict[str, Any], incidents: dict[str, Any], sources: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     if manifest.get("schema_version") != SUPPORTED_SCHEMA_VERSION:
@@ -159,6 +176,11 @@ def _validate_feed(manifest: dict[str, Any], incidents: dict[str, Any], sources:
             errors.append(f"incident {upstream_id} missing position_precision_m")
         elif float(precision) <= 0:
             errors.append(f"incident {upstream_id} has non-positive precision")
+
+        try:
+            _confidence_from_props(props)
+        except (TypeError, ValueError):
+            errors.append(f"incident {upstream_id} has invalid confidence")
 
         first_detected = parse_utc(props.get("first_detected"))
         last_detected = parse_utc(props.get("last_detected"))
@@ -344,7 +366,9 @@ def _event_snapshot_from_observation(obs: Observation, point: Point) -> dict[str
         "last_observed_at": observed_at,
         "attributes": {
             "upstream_incident_id": attrs.get("upstream_incident_id"),
+            "upstream_incident_ids": [attrs.get("upstream_incident_id")],
             "origin": attrs.get("origin"),
+            "origins": [attrs.get("origin")] if attrs.get("origin") else [],
             "satellite_confirmed": attrs.get("satellite_confirmed"),
             "official_confirmed": attrs.get("official_confirmed"),
             "confirmed_by": attrs.get("confirmed_by"),
@@ -390,10 +414,122 @@ def _changed_fields(event: Event, snapshot: dict[str, Any]) -> list[str]:
     return changed
 
 
-def _find_event(session: Session, upstream_id: str) -> Event | None:
-    return session.scalar(
-        select(Event).where(Event.attributes["upstream_incident_id"].astext == upstream_id)
+def _listify(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(item) for item in value if item]
+    return [str(value)]
+
+
+def _split_sensors(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    return [part.strip() for part in str(value).split(",") if part.strip()]
+
+
+def _distance_m(first: tuple[float, float], second: tuple[float, float]) -> float:
+    lon1, lat1 = first
+    lon2, lat2 = second
+    dlon = radians(lon2 - lon1)
+    dlat = radians(lat2 - lat1)
+    a = sin(dlat / 2) ** 2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon / 2) ** 2
+    return 6_371_000 * 2 * asin(sqrt(a))
+
+
+def _event_coordinates(event: Event) -> tuple[float, float] | None:
+    coords = event.attributes.get("geometry_coordinates")
+    if not isinstance(coords, list) or len(coords) != 2:
+        return None
+    return float(coords[0]), float(coords[1])
+
+
+def _origins_match_for_reconciliation(existing: Event, incoming_origin: str | None) -> bool:
+    existing_origins = set(_listify(existing.attributes.get("origins")) or _listify(existing.attributes.get("origin")))
+    if not incoming_origin or not existing_origins:
+        return False
+    if incoming_origin == "ambos" or "ambos" in existing_origins:
+        return True
+    return incoming_origin in {"satelite", "oficial"} and bool(existing_origins - {incoming_origin})
+
+
+def _find_event(session: Session, upstream_id: str, snapshot: dict[str, Any]) -> Event | None:
+    events = session.scalars(select(Event).where(Event.event_type == "wildfire")).all()
+    for event in events:
+        upstream_ids = set(_listify(event.attributes.get("upstream_incident_ids")))
+        upstream_ids.update(_listify(event.attributes.get("upstream_incident_id")))
+        if upstream_id in upstream_ids:
+            return event
+
+    incoming_attrs = snapshot["attributes"]
+    incoming_observed_at = snapshot.get("last_observed_at")
+    incoming_coords = tuple(snapshot["geometry"]["coordinates"])
+    incoming_precision = float(snapshot["precision_m"] or RECONCILIATION_MIN_DISTANCE_M)
+    incoming_origin = incoming_attrs.get("origin")
+    for event in events:
+        if not _origins_match_for_reconciliation(event, incoming_origin):
+            continue
+        if not event.last_observed_at or not incoming_observed_at:
+            continue
+        if abs((event.last_observed_at - incoming_observed_at).total_seconds()) > RECONCILIATION_TIME_WINDOW_HOURS * 3600:
+            continue
+        existing_coords = _event_coordinates(event)
+        if existing_coords is None:
+            continue
+        tolerance_m = max(float(event.precision_m or 0), incoming_precision, RECONCILIATION_MIN_DISTANCE_M)
+        if _distance_m(existing_coords, cast(tuple[float, float], incoming_coords)) <= tolerance_m:
+            return event
+    return None
+
+
+def _merge_event_snapshot(event: Event, snapshot: dict[str, Any]) -> dict[str, Any]:
+    previous_attrs = event.attributes
+    incoming_attrs = snapshot["attributes"]
+    upstream_ids = sorted(
+        set(_listify(previous_attrs.get("upstream_incident_ids")))
+        | set(_listify(previous_attrs.get("upstream_incident_id")))
+        | set(_listify(incoming_attrs.get("upstream_incident_ids")))
+        | set(_listify(incoming_attrs.get("upstream_incident_id")))
     )
+    origins = sorted(
+        set(_listify(previous_attrs.get("origins")))
+        | set(_listify(previous_attrs.get("origin")))
+        | set(_listify(incoming_attrs.get("origins")))
+        | set(_listify(incoming_attrs.get("origin")))
+    )
+    sensors = sorted(set(_split_sensors(previous_attrs.get("sensors"))) | set(_split_sensors(incoming_attrs.get("sensors"))))
+    merged = dict(snapshot)
+    previous_confidence = event.confidence
+    incoming_confidence = snapshot.get("confidence")
+    merged["confidence"] = max(
+        value for value in [previous_confidence, incoming_confidence] if value is not None
+    ) if previous_confidence is not None or incoming_confidence is not None else None
+    if event.status and not snapshot.get("status"):
+        merged["status"] = event.status
+        merged["status_source_id"] = event.status_source_id
+    if event.summary and not snapshot.get("summary"):
+        merged["summary"] = event.summary
+    if event.precision_m is not None and snapshot.get("precision_m") is not None and event.precision_m < snapshot["precision_m"]:
+        merged["precision_m"] = event.precision_m
+        merged["geometry"] = {"type": "Point", "coordinates": previous_attrs.get("geometry_coordinates")}
+    if event.valid_from and snapshot.get("valid_from"):
+        merged["valid_from"] = min(event.valid_from, snapshot["valid_from"])
+    if event.last_observed_at and snapshot.get("last_observed_at"):
+        merged["last_observed_at"] = max(event.last_observed_at, snapshot["last_observed_at"])
+    if set(origins) >= {"oficial", "satelite"} or "ambos" in origins:
+        merged["subtype"] = "ambos"
+    merged["attributes"] = {
+        **previous_attrs,
+        **incoming_attrs,
+        "upstream_incident_ids": upstream_ids,
+        "origins": origins,
+        "origin": merged["subtype"],
+        "sensors": ",".join(sensors),
+        "geometry_coordinates": merged["geometry"]["coordinates"],
+    }
+    return merged
 
 
 def ingest_wildfire_public(
@@ -485,7 +621,7 @@ def ingest_wildfire_public(
             ingested_at=now_utc(),
             geometry=from_shape(point, srid=4326),
             precision_m=float(props["position_precision_m"]),
-            confidence=None,
+            confidence=_confidence_from_props(props),
             attributes=_observation_attrs(props, manifest),
             raw_payload_id=raw_payloads["incidents"].id,
         )
@@ -494,7 +630,7 @@ def ingest_wildfire_public(
         observations_created += 1
 
         event_snapshot = _event_snapshot_from_observation(observation, point)
-        event = _find_event(session, upstream_id)
+        event = _find_event(session, upstream_id, event_snapshot)
         if event is None:
             event = Event(
                 id=str(uuid4()),
@@ -520,6 +656,7 @@ def ingest_wildfire_public(
             session.flush()
             events_created += 1
         else:
+            event_snapshot = _merge_event_snapshot(event, event_snapshot)
             changed = _changed_fields(event, event_snapshot)
             if changed:
                 previous = _snapshot_event(event)

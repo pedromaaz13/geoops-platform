@@ -12,8 +12,8 @@ Estado del origen durante la inspeccion: `?? .DS_Store` preexistente. No se modi
 GeoOps ya tiene un MVP vertical wildfire con raw persistence, `Observation`,
 `Event`, revisiones, impactos, alertas y endpoints `/v1`. No alcanza todavia la
 paridad backend del visor original: faltan invariantes de publicacion amplios,
-filtros sensor/confianza/origen, medicion de precision por fuente, cuotas por
-fuente y pipeline satelite/oficial completo.
+medicion de precision por fuente, cuotas por fuente y pipeline satelite/oficial
+completo.
 
 ## Matriz de capacidades
 
@@ -26,10 +26,10 @@ fuente y pipeline satelite/oficial completo.
 | Estado sin fuente | Invariante 9 aborta si hay estado sin parte oficial. | Test MVP rechaza status sin official/source. | Parcial | Ampliar a suite de invariantes por evento/observacion. |
 | Geometria valida | Invariante bbox Espana + Canarias; aborta `(0,0)`. | `GEO-WF-002` valida Point dentro de bbox Espana+Canarias antes de ingestar. | Paridad MVP | Ampliar si futuras verticales salen de Espana. |
 | Precision positiva | Invariante 6 aborta precision nula/cero. | `GEO-WF-002` exige `position_precision_m` obligatorio y positivo en wildfire-public. | Paridad MVP | Medir precision por fuente real en tareas posteriores. |
-| Sensor/confianza/origen | `instrument`, `confidence_pct`, `origin`, `official_confirmed`, `satellite_confirmed`. | Atributos MVP existen en raw/attributes, no como filtros publicos completos. | Pendiente | Exponer filtros wildfire `origin`, `sensor`, `confidence` cuando se estabilice contrato. |
+| Sensor/confianza/origen | `instrument`, `confidence_pct`, `origin`, `official_confirmed`, `satellite_confirmed`. | `GEO-WF-005` expone `origins`, `sensors` y `min_confidence` en `/v1/events` y UI. | Paridad MVP | Ampliar vocabulario cuando haya fuentes reales. |
 | Falso positivo | `clean` excluye antorchas industriales y baja confianza. | No hay pipeline FIRMS real ni exclusion list. | Fuera de alcance actual | Portar solo cuando exista fuente FIRMS real/fixture. |
 | Cluster satelital | `cluster` agrupa hotspots en incendio candidato. | MVP ingiere incidentes ya agregados. | Pendiente | Tarea futura si GeoOps consume hotspots, no `incidents.geojson`. |
-| Fusion oficial/satelite | `merge` usa tolerancia por precision de fuente y ventana temporal. | Reconciliacion MVP por `source_id + upstream_incident_id`. | Pendiente | Portar comportamiento cuando haya dos observaciones para un mismo evento. |
+| Fusion oficial/satelite | `merge` usa tolerancia por precision de fuente y ventana temporal. | `GEO-WF-006` fusiona observaciones wildfire oficial/satelite por ventana 6h y tolerancia basada en precision. | Paridad MVP | Formalizar motor generico si aparece segundo adaptador real. |
 | Salida vacia sospechosa | `AGENTS.md` y publicacion evitan interpretar cero como ausencia si historico tenia datos. | `GEO-WF-003` rechaza `features=[]` tras actividad wildfire reciente, conserva raw y ultimo estado valido. | Paridad MVP | Afinar por TTL/fuente cuando haya fuentes reales. |
 | Salud de fuentes | `SourceHealth` distingue descarga, dato fresco, stale, cuota, separacion medida. | `GEO-WF-004` separa descarga, dato, ultimo exito, TTL y razon stale para `/v1/sources/health`. | Paridad MVP | Anadir cuotas por fuente si aplica. |
 | Publicacion segura | `validate_or_abort` impide publicar corrupto y conserva ejecucion anterior. | API lee PostGIS; no hay snapshot publico ni guard de publicacion. | Pendiente | Definir `PublicSnapshot` cuando vuelva la publicacion estatica. |
@@ -51,12 +51,13 @@ fuente y pipeline satelite/oficial completo.
 
 ## Tareas recomendadas
 
-1. `GEO-WF-005 · Filtros wildfire de origen/sensor/confianza`.
-   - Solo si el contrato expone esos campos de forma estable.
+1. `GEO-WF-007 · Fixtures wildfire ampliados`.
+   - Muchos eventos, textos largos, fuentes degradadas, baja confianza y casos
+   de frontera para filtros/reconciliacion.
 
-2. `GEO-WF-006 · Reconciliacion multiobservacion wildfire`.
-   - Portar la idea de tolerancia por precision y ventana temporal cuando
-   existan observaciones oficiales y satelitales separadas.
+2. `GEO-WF-008 · Reproceso desde raw`.
+   - Verificar que un raw payload puede reconstruir observaciones/eventos sin
+   depender de estado temporal.
 
 ## Riesgos vivos
 
@@ -108,3 +109,24 @@ Se anadio source health con stale real:
 
 No se anadieron fuentes externas ni migraciones. Las cuotas por fuente quedan
 pendientes hasta que exista una fuente real que las declare.
+
+## GEO-WF-005 cerrado
+
+Se anadieron filtros wildfire:
+
+- `origins` en `/v1/events`;
+- `sensors` en `/v1/events`;
+- `min_confidence` en `/v1/events`;
+- controles equivalentes en la UI operacional;
+- propagacion de `confidence` desde payload a `Observation` y `Event`.
+
+## GEO-WF-006 cerrado
+
+Se anadio reconciliacion MVP oficial/satelite:
+
+- exact match por `upstream_incident_id` sigue siendo prioritario;
+- si los IDs difieren, se permite fusionar observaciones wildfire dentro de 6h;
+- la distancia admisible usa la precision declarada con minimo 1000 m;
+- el evento fusionado conserva `upstream_incident_ids`, `origins`, sensores y
+  ambas relaciones `EventObservation`;
+- una observacion sin estado oficial no borra un estado oficial anterior.
