@@ -56,6 +56,10 @@ healthy, `/health`, `/ready`, resumen demo con 2 eventos, `make lint`,
 `make typecheck`, `make test`, `make build`, `make e2e`, `make check` y
 `make demo` terminados correctamente. Warnings vivos: chunk grande de MapLibre
 en build/E2E y avisos `NO_COLOR`/`FORCE_COLOR` de Playwright.
+Incidencia local posterior: una API ajena en `8000` hacia que la UI cargara
+contra un backend equivocado. Validado y documentado en
+`docs/14-VALIDACION-INCIDENCIA-Y-PROXIMOS-PASOS.md`; `make dev` incorpora
+preflight de puerto.
 
 ## Fuentes conectadas
 

@@ -57,6 +57,22 @@ soportados o fallar con mensaje claro. En `GEO-UI-003` se permiten
 `127.0.0.1`/`localhost` en `5173-5179` y la UI distingue API no accesible, CORS,
 sin datos y demo no sembrada.
 
+### Otra API en 8000 puede parecer GeoOps
+
+En desarrollo local se detecto una API ajena respondiendo en `127.0.0.1:8000`
+con:
+
+```json
+{"status":"ok","metadata_store":"supabase"}
+```
+
+La UI de GeoOps intentaba consultar `/v1/operations/summary` contra ese proceso
+y recibia `404`.
+
+**Regla:** antes de arrancar `make dev`, comprobar que el puerto de API no esta
+ocupado o que `/health` identifica `service=geoops-api`. Se añade
+`make preflight-dev-ports`.
+
 ### Los E2E pueden usar un build viejo
 
 Un servidor reutilizado puede validar código anterior.

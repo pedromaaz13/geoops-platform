@@ -90,6 +90,10 @@ La API permite CORS local para `127.0.0.1` y `localhost` en los puertos
 `5173-5179`, de forma que `make demo && make dev` siga cargando datos aunque
 Vite use un puerto alternativo.
 
+`make dev` comprueba antes el puerto de API. Si `8000` está ocupado por otra
+aplicación, falla con un mensaje explícito para evitar que la web cargue contra
+un backend equivocado.
+
 Para detener PostGIS:
 
 ```bash
