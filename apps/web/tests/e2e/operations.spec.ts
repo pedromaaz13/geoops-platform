@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
 
 const event = {
   type: 'Feature',
@@ -27,6 +28,54 @@ const event = {
     impacts_count: 1,
   },
 };
+
+async function mockReadOnlyOperationsApi(page: Page) {
+  await page.route('**/v1/events?**', (route) =>
+    route.fulfill({ json: { type: 'FeatureCollection', features: [event], meta: { next_cursor: null, generated_at: 'now', partial: false } } }),
+  );
+  await page.route('**/v1/events/event-1', (route) => route.fulfill({ json: event }));
+  await page.route('**/v1/events/event-1/observations', (route) => route.fulfill({ json: [] }));
+  await page.route('**/v1/events/event-1/impacts', (route) => route.fulfill({ json: [] }));
+  await page.route('**/v1/events/event-1/timeline', (route) =>
+    route.fulfill({ json: { event_id: 'event-1', generated_at: '2026-08-05T01:00:00Z', points: [] } }),
+  );
+  await page.route('**/v1/sources/health', (route) =>
+    route.fulfill({ json: [{ id: 'wildfire-public', name: 'Wildfire public', kind: 'wildfire', enabled: true, criticality: 'high', freshness_status: 'success', data_age_seconds: 7200, pipeline_age_seconds: 240, records: 1, precision_m: 375, last_run: { status: 'success', latest_observed_at: '2026-08-04T20:51:00Z', records_accepted: 1, records_rejected: 0 } }] }),
+  );
+  await page.route('**/v1/operations/summary', (route) =>
+    route.fulfill({
+      json: {
+        generated_at: '2026-08-05T01:00:00Z',
+        events_total: 1,
+        events_by_status: { activo: 1 },
+        events_by_type: { wildfire: 1 },
+        events_by_source: { 'wildfire-public': 1 },
+        events_recent_24h: 1,
+        events_with_impact: 0,
+        open_alerts: 0,
+        assets_total: 0,
+        sources_total: 1,
+        sources_degraded: [],
+        latest_observed_at: '2026-08-04T20:51:00Z',
+        latest_ingested_at: '2026-08-05T01:00:00Z',
+        manifest: {
+          generated_at: '2026-08-04T22:51:00Z',
+          pipeline_age_seconds: 240,
+          data_age_seconds: { 'wildfire-public': 7200 },
+          worst_data_age_seconds: 7200,
+          counts: { hotspots_24h: 33 },
+          frp_total_mw: 426.36,
+          degraded: false,
+          degraded_reason: null,
+          demo: true,
+          demo_reason: 'Reduced fixture for GeoOps MVP tests.',
+        },
+      },
+    }),
+  );
+  await page.route('**/v1/assets', (route) => route.fulfill({ json: [] }));
+  await page.route('**/v1/alerts', (route) => route.fulfill({ json: [] }));
+}
 
 test('operations wildfire demo flow', async ({ page }) => {
   let assetCreated = false;
@@ -125,11 +174,12 @@ test('operations wildfire demo flow', async ({ page }) => {
   await expect(page.getByText('Incendio cerca de Eslida').first()).toBeVisible();
   await expect(page.getByText(/Datos demo/)).toBeVisible();
   await expect(page.getByText(/Edad dato/)).toBeVisible();
-  await page.getByRole('button', { name: /SO/ }).click();
+  const rail = page.getByRole('navigation', { name: /Navegacion GeoOps/ });
+  await rail.getByRole('button', { name: 'Fuentes' }).click();
   await expect(page.getByText(/Salud de fuentes/)).toBeVisible();
-  await page.getByRole('button', { name: /LA/ }).click();
+  await rail.getByRole('button', { name: 'Capas' }).click();
   await expect(page.getByText(/Mapas base|registry inicial/)).toBeVisible();
-  await page.getByRole('button', { name: /AS/ }).click();
+  await rail.getByRole('button', { name: 'Activos' }).click();
   const assetForm = page.locator('form').filter({ hasText: 'Crear activo' });
   await assetForm.getByPlaceholder('Nombre').fill('Camping demo');
   await assetForm.getByPlaceholder('Tipo').fill('camping');
@@ -137,13 +187,25 @@ test('operations wildfire demo flow', async ({ page }) => {
   await assetForm.getByPlaceholder('Latitud').fill('39.9');
   await assetForm.getByRole('button', { name: /Crear activo/ }).click();
   await expect(page.getByText('Camping demo')).toBeVisible();
-  await page.getByRole('button', { name: /AL/ }).click();
+  await rail.getByRole('button', { name: 'Alertas' }).click();
   const ruleForm = page.locator('form').filter({ hasText: 'Crear regla' });
   await ruleForm.locator('select[name="asset_id"]').selectOption('asset-1');
   await ruleForm.getByRole('button', { name: 'Crear regla' }).click();
-  await page.getByRole('button', { name: 'Impactos' }).click();
+  await page.getByRole('tab', { name: 'Impactos' }).click();
   await expect(page.getByText(/1.4 km/)).toBeVisible();
-  await page.getByRole('button', { name: /AL/ }).click();
+  await rail.getByRole('button', { name: 'Alertas' }).click();
   await page.getByRole('button', { name: 'Reconocer' }).click();
   await expect(page.getByText('acknowledged')).toBeVisible();
+});
+
+test('mobile operations shell keeps map visible without global scroll', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockReadOnlyOperationsApi(page);
+
+  await page.goto('/operations');
+
+  await expect(page.getByLabel('Mapa operacional')).toBeVisible();
+  await expect(page.getByText('Incendio cerca de Eslida').first()).toBeVisible();
+  const overflowY = await page.evaluate(() => window.getComputedStyle(document.body).overflowY);
+  expect(overflowY).toBe('hidden');
 });

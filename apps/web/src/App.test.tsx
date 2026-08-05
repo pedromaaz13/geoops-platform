@@ -1,5 +1,5 @@
-import { render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { App } from './App';
 import { AppProviders } from './app/providers';
@@ -102,6 +102,12 @@ function mockFetch() {
 }
 
 describe('App', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.history.replaceState(null, '', '/operations');
+    vi.unstubAllGlobals();
+  });
+
   it('renders operations list and provenance fields', async () => {
     mockFetch();
 
@@ -113,5 +119,32 @@ describe('App', () => {
     expect(screen.getAllByText(/Pipeline/i).length).toBeGreaterThan(0);
     expect(screen.getByRole('navigation', { name: /Navegacion GeoOps/i })).toBeTruthy();
     expect(screen.getAllByText(/112cv/i).length).toBeGreaterThan(0);
+  });
+
+  it('keeps selection while switching workspace and detail tabs', async () => {
+    mockFetch();
+
+    render(<AppProviders><App /></AppProviders>);
+
+    await waitFor(() => expect(screen.getAllByText('Incendio cerca de Eslida').length).toBeGreaterThan(0));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Fuentes' })[0]);
+    expect(screen.getByText(/Salud de fuentes/i)).toBeTruthy();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Operaciones' })[0]);
+    fireEvent.click(screen.getByRole('tab', { name: /Evidencias/i }));
+
+    await waitFor(() => expect(screen.getByText(/observed_at/i)).toBeTruthy());
+    expect(window.location.search).toContain('tab=evidence');
+  });
+
+  it('collapses the rail and exposes accessible tooltips', async () => {
+    mockFetch();
+
+    render(<AppProviders><App /></AppProviders>);
+
+    await waitFor(() => expect(screen.getAllByText('Incendio cerca de Eslida').length).toBeGreaterThan(0));
+    fireEvent.click(screen.getByRole('button', { name: /Contraer navegacion/i }));
+    fireEvent.focus(screen.getAllByRole('button', { name: 'Fuentes' }).at(-1)!);
+
+    expect(screen.getByRole('tooltip').textContent).toContain('Fuentes');
   });
 });

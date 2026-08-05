@@ -1,4 +1,24 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
+import {
+  Activity,
+  Bell,
+  ChevronDown,
+  DatabaseZap,
+  Flame,
+  Gauge,
+  Home,
+  Layers,
+  MapPinned,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Search,
+  Settings,
+  ShieldAlert,
+  SlidersHorizontal,
+  Target,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 import { OperationsMap } from '../features/map/OperationsMap';
 import { useOperationsData } from '../hooks/useOperationsData';
@@ -17,7 +37,7 @@ import type {
   SourceHealthDto,
 } from '../types';
 
-type ActivePanel = 'overview' | 'sources' | 'layers' | 'assets' | 'alerts';
+type ActivePanel = 'home' | 'overview' | 'sources' | 'assets' | 'alerts' | 'layers' | 'analysis' | 'settings';
 type DetailTab = 'summary' | 'evidence' | 'evolution' | 'impacts' | 'sources';
 type Basemap = 'dark' | 'light' | 'satellite';
 
@@ -42,6 +62,26 @@ const defaultLayers = Object.fromEntries(layerRegistry.map((layer) => [layer.id,
 
 function initialSelectedEvent(): string | null {
   return new URLSearchParams(window.location.search).get('event');
+}
+
+function initialActivePanel(): ActivePanel {
+  const panel = new URLSearchParams(window.location.search).get('panel');
+  if (panel && ['home', 'overview', 'sources', 'assets', 'alerts', 'layers', 'analysis', 'settings'].includes(panel)) {
+    return panel as ActivePanel;
+  }
+  return 'overview';
+}
+
+function initialDetailTab(): DetailTab {
+  const tab = new URLSearchParams(window.location.search).get('tab');
+  if (tab && ['summary', 'evidence', 'evolution', 'impacts', 'sources'].includes(tab)) {
+    return tab as DetailTab;
+  }
+  return 'summary';
+}
+
+function initialRailCollapsed(): boolean {
+  return window.localStorage.getItem('geoops-rail-collapsed') === '1';
 }
 
 function initialFilters(): EventFilters {
@@ -109,13 +149,32 @@ function globalDegradation(summary: OperationsSummaryDto | undefined, sources: S
   return null;
 }
 
+function friendlyLoadError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  const lowered = message.toLocaleLowerCase('es');
+  if (lowered.includes('failed to fetch') || lowered.includes('networkerror')) {
+    return 'La API no responde desde este puerto local. Comprueba que make dev mantiene FastAPI vivo y que Vite esta usando un puerto permitido.';
+  }
+  if (lowered.includes('cors')) {
+    return 'El navegador ha bloqueado la llamada por CORS. GeoOps permite los puertos locales 5173-5179; reinicia make dev si cambiaste la configuracion.';
+  }
+  if (lowered.includes('404')) {
+    return 'El endpoint esperado no esta disponible. Revisa que la API este levantada con la rama correcta.';
+  }
+  return `No se pudieron cargar datos operacionales: ${message}. Si la base esta vacia, ejecuta make demo.`;
+}
+
 function useUrlSync(
   selectedEventId: string | null,
   filters: EventFilters,
   layers: Record<LayerId, boolean>,
+  activePanel: ActivePanel,
+  detailTab: DetailTab,
 ) {
   useEffect(() => {
     const params = new URLSearchParams();
+    if (activePanel !== 'overview') params.set('panel', activePanel);
+    if (detailTab !== 'summary') params.set('tab', detailTab);
     if (selectedEventId) params.set('event', selectedEventId);
     if (filters.status) params.set('status', filters.status);
     if (filters.source) params.set('source', filters.source);
@@ -126,16 +185,17 @@ function useUrlSync(
     if (enabledLayers.length !== layerRegistry.length) params.set('layers', enabledLayers.join(','));
     const next = params.toString();
     window.history.replaceState(null, '', `${window.location.pathname}${next ? `?${next}` : ''}`);
-  }, [filters, layers, selectedEventId]);
+  }, [activePanel, detailTab, filters, layers, selectedEventId]);
 }
 
 export function App() {
   const [selectedEventId, setSelectedEventId] = useState<string | null>(initialSelectedEvent);
   const [filters, setFilters] = useState<EventFilters>(initialFilters);
   const [visibleLayers, setVisibleLayers] = useState<Record<LayerId, boolean>>(initialLayers);
-  const [basemap, setBasemap] = useState<Basemap>('dark');
-  const [activePanel, setActivePanel] = useState<ActivePanel>('overview');
-  const [detailTab, setDetailTab] = useState<DetailTab>('summary');
+  const [basemap, setBasemap] = useState<Basemap>('satellite');
+  const [activePanel, setActivePanel] = useState<ActivePanel>(initialActivePanel);
+  const [detailTab, setDetailTab] = useState<DetailTab>(initialDetailTab);
+  const [railCollapsed, setRailCollapsed] = useState<boolean>(initialRailCollapsed);
   const [search, setSearch] = useState('');
   const [viewportBounds, setViewportBounds] = useState<[number, number, number, number] | null>(null);
   const [focusCoordinates, setFocusCoordinates] = useState<[number, number] | null>(null);
@@ -151,7 +211,11 @@ export function App() {
   const visibleEvents = useMemo(() => events.filter((event) => pointInside(viewportBounds, event)), [events, viewportBounds]);
   const degradation = globalDegradation(data.summary.data, sources);
 
-  useUrlSync(selectedEventId, filters, visibleLayers);
+  useUrlSync(selectedEventId, filters, visibleLayers, activePanel, detailTab);
+
+  useEffect(() => {
+    window.localStorage.setItem('geoops-rail-collapsed', railCollapsed ? '1' : '0');
+  }, [railCollapsed]);
 
   useEffect(() => {
     if (selectedEventId || !events[0]) return;
@@ -216,12 +280,20 @@ export function App() {
         sources={sources}
         openAlerts={openAlerts.length}
         loading={data.busy}
+        activePanel={activePanel}
+        onPanelChange={setActivePanel}
       />
       {degradation && <DegradationBanner title={degradation.title} message={degradation.message} tone={degradation.tone} />}
-      {data.error && <DegradationBanner title="Carga parcial" message={data.error instanceof Error ? data.error.message : 'Error desconocido'} tone="bad" />}
+      {data.error && <DegradationBanner title="API no accesible" message={friendlyLoadError(data.error)} tone="bad" />}
 
-      <section className="operations-grid">
-        <NavigationRail activePanel={activePanel} onSelect={setActivePanel} openAlerts={openAlerts.length} />
+      <section className={railCollapsed ? 'operations-grid rail-collapsed' : 'operations-grid'}>
+        <NavigationRail
+          activePanel={activePanel}
+          collapsed={railCollapsed}
+          onCollapsedChange={setRailCollapsed}
+          onSelect={setActivePanel}
+          openAlerts={openAlerts.length}
+        />
         <ContextPanel
           activePanel={activePanel}
           search={search}
@@ -245,6 +317,7 @@ export function App() {
           onDeleteAsset={(assetId) => void data.actions.deleteAsset(assetId)}
           onCreateRule={handleCreateRule}
           onAcknowledgeAlert={(alertId) => void data.actions.acknowledgeAlert(alertId)}
+          onResetFilters={() => setFilters(defaultFilters)}
         />
 
         <section className="map-stage">
@@ -274,9 +347,11 @@ export function App() {
 
         <EventListPanel
           events={visibleEvents}
+          allEventsCount={events.length}
           selectedEventId={selectedEventId}
           alerts={alerts}
           impacts={selectedImpacts}
+          onResetFilters={() => setFilters(defaultFilters)}
           onSelect={(event) => {
             setSelectedEventId(event.properties.id);
             setFocusCoordinates(event.geometry.coordinates);
@@ -296,30 +371,62 @@ function GlobalTopBar({
   sources,
   openAlerts,
   loading,
+  activePanel,
+  onPanelChange,
 }: {
   summary: OperationsSummaryDto | undefined;
   sources: SourceHealthDto[];
   openAlerts: number;
   loading: boolean;
+  activePanel: ActivePanel;
+  onPanelChange: (panel: ActivePanel) => void;
 }) {
   const degraded = sources.filter((source) => statusClass(source.freshness_status ?? source.last_run?.status) !== 'ok').length;
+  const workspaceTabs: Array<{ id: ActivePanel; label: string }> = [
+    { id: 'overview', label: 'Operaciones' },
+    { id: 'sources', label: 'Fuentes' },
+    { id: 'assets', label: 'Activos' },
+    { id: 'alerts', label: 'Alertas' },
+    { id: 'analysis', label: 'Analisis' },
+  ];
   return (
     <header className="global-topbar">
       <div className="brand-block">
         <span className="eyebrow">GeoOps Platform</span>
         <h1>Operations</h1>
       </div>
-      <div className="scope-tabs" aria-label="Ambito operacional">
-        <span className="scope-tab active">Wildfire</span>
-        <span className="scope-tab muted">Multievento preparado</span>
+      <div className="workspace-tabs" aria-label="Pestanas de trabajo">
+        {workspaceTabs.map((tab) => (
+          <button
+            aria-current={activePanel === tab.id ? 'page' : undefined}
+            className={activePanel === tab.id ? 'workspace-tab active' : 'workspace-tab'}
+            key={tab.id}
+            onClick={() => onPanelChange(tab.id)}
+            type="button"
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
       <div className="metric-strip" aria-label="Resumen operacional">
-        <Metric label="Eventos" value={summary?.events_total ?? 0} />
-        <Metric label="Activos" value={summary?.assets_total ?? 0} />
-        <Metric label="Alertas" value={openAlerts} tone={openAlerts ? 'bad' : 'ok'} />
-        <Metric label="Fuentes degr." value={degraded} tone={degraded ? 'warn' : 'ok'} />
-        <Metric label="Edad dato" value={formatAgeFromSeconds(summary?.manifest.worst_data_age_seconds) } />
-        <Metric label="Pipeline" value={formatAgeFromSeconds(summary?.manifest.pipeline_age_seconds)} />
+        <Tooltip label="Eventos canonicos cargados en el resumen operacional.">
+          <Metric label="Eventos" value={summary?.events_total ?? 0} />
+        </Tooltip>
+        <Tooltip label="Activos locales creados para cruzar impactos.">
+          <Metric label="Activos" value={summary?.assets_total ?? 0} />
+        </Tooltip>
+        <Tooltip label="Alertas abiertas pendientes de reconocer.">
+          <Metric label="Alertas" value={openAlerts} tone={openAlerts ? 'bad' : 'ok'} />
+        </Tooltip>
+        <Tooltip label="Fuentes que no estan en success o equivalente operativo.">
+          <Metric label="Fuentes degr." value={degraded} tone={degraded ? 'warn' : 'ok'} />
+        </Tooltip>
+        <Tooltip label="Edad del dato observado mas antiguo que condiciona la vista.">
+          <Metric label="Edad dato" value={formatAgeFromSeconds(summary?.manifest.worst_data_age_seconds)} />
+        </Tooltip>
+        <Tooltip label="Tiempo desde que el pipeline genero el resumen visible.">
+          <Metric label="Pipeline" value={formatAgeFromSeconds(summary?.manifest.pipeline_age_seconds)} />
+        </Tooltip>
       </div>
       <div className={loading ? 'sync-state loading' : 'sync-state'}>
         <span>{loading ? 'sincronizando' : 'operativo'}</span>
@@ -349,33 +456,52 @@ function DegradationBanner({ title, message, tone }: { title: string; message: s
 
 function NavigationRail({
   activePanel,
+  collapsed,
   openAlerts,
+  onCollapsedChange,
   onSelect,
 }: {
   activePanel: ActivePanel;
+  collapsed: boolean;
   openAlerts: number;
+  onCollapsedChange: (collapsed: boolean) => void;
   onSelect: (panel: ActivePanel) => void;
 }) {
-  const items: Array<{ id: ActivePanel; label: string; glyph: string; count?: number }> = [
-    { id: 'overview', label: 'Operacion', glyph: 'OP' },
-    { id: 'sources', label: 'Fuentes', glyph: 'SO' },
-    { id: 'layers', label: 'Capas', glyph: 'LA' },
-    { id: 'assets', label: 'Activos', glyph: 'AS' },
-    { id: 'alerts', label: 'Alertas', glyph: 'AL', count: openAlerts },
+  const items: Array<{ id: ActivePanel; label: string; icon: LucideIcon; count?: number; disabled?: boolean }> = [
+    { id: 'home', label: 'Home', icon: Home },
+    { id: 'overview', label: 'Operaciones', icon: Flame },
+    { id: 'sources', label: 'Fuentes', icon: DatabaseZap },
+    { id: 'assets', label: 'Activos', icon: Target },
+    { id: 'alerts', label: 'Alertas', icon: Bell, count: openAlerts },
+    { id: 'layers', label: 'Capas', icon: Layers },
+    { id: 'analysis', label: 'Analisis', icon: Activity },
+    { id: 'settings', label: 'Configuracion', icon: Settings },
   ];
+  const railLabel = collapsed ? 'Expandir navegacion' : 'Contraer navegacion';
+  const CollapseIcon = collapsed ? PanelLeftOpen : PanelLeftClose;
   return (
-    <nav className="navigation-rail" aria-label="Navegacion GeoOps">
-      {items.map((item) => (
-        <button
-          className={activePanel === item.id ? 'rail-button active' : 'rail-button'}
-          key={item.id}
-          onClick={() => onSelect(item.id)}
-          title={item.label}
-          type="button"
-        >
-          <span>{item.glyph}</span>
-          {item.count ? <b>{item.count}</b> : null}
+    <nav className={collapsed ? 'navigation-rail collapsed' : 'navigation-rail expanded'} aria-label="Navegacion GeoOps">
+      <Tooltip label={railLabel} disabled={!collapsed}>
+        <button className="rail-collapse" onClick={() => onCollapsedChange(!collapsed)} type="button" aria-label={railLabel}>
+          <CollapseIcon aria-hidden="true" size={17} />
+          {!collapsed && <span>{railLabel}</span>}
         </button>
+      </Tooltip>
+      {items.map((item) => (
+        <Tooltip disabled={!collapsed} key={item.id} label={item.label}>
+          <button
+            aria-current={activePanel === item.id ? 'page' : undefined}
+            aria-label={item.label}
+            className={activePanel === item.id ? 'rail-button active' : 'rail-button'}
+            disabled={item.disabled}
+            onClick={() => onSelect(item.id)}
+            type="button"
+          >
+            <item.icon aria-hidden="true" size={17} />
+            {!collapsed && <span className="rail-label">{item.label}</span>}
+            {item.count ? <b>{item.count}</b> : null}
+          </button>
+        </Tooltip>
       ))}
     </nav>
   );
@@ -401,11 +527,20 @@ function ContextPanel(props: {
   onDeleteAsset: (assetId: string) => void;
   onCreateRule: (event: React.FormEvent<HTMLFormElement>) => void;
   onAcknowledgeAlert: (alertId: string) => void;
+  onResetFilters: () => void;
 }) {
   return (
     <aside className="context-panel" aria-label="Panel contextual">
       <SearchSection {...props} />
-      {props.activePanel === 'overview' && <OverviewSection summary={props.summary} filters={props.filters} onFiltersChange={props.onFiltersChange} />}
+      {props.activePanel === 'home' && <HomeSection summary={props.summary} sources={props.sources} alerts={props.alerts} />}
+      {props.activePanel === 'overview' && (
+        <OverviewSection
+          summary={props.summary}
+          filters={props.filters}
+          onFiltersChange={props.onFiltersChange}
+          onResetFilters={props.onResetFilters}
+        />
+      )}
       {props.activePanel === 'sources' && <SourceHealthSection sources={props.sources} />}
       {props.activePanel === 'layers' && (
         <LayerSection
@@ -421,6 +556,8 @@ function ContextPanel(props: {
       {props.activePanel === 'alerts' && (
         <AlertsSection alerts={props.alerts} assets={props.assets} onCreateRule={props.onCreateRule} onAcknowledgeAlert={props.onAcknowledgeAlert} />
       )}
+      {props.activePanel === 'analysis' && <AnalysisSection summary={props.summary} />}
+      {props.activePanel === 'settings' && <SettingsSection />}
     </aside>
   );
 }
@@ -434,7 +571,7 @@ function SearchSection({
   return (
     <section className="panel-section search-section">
       <div className="panel-heading">
-        <span>Busca un lugar</span>
+        <span><Search aria-hidden="true" size={14} /> Busca un lugar</span>
         <small>eventos y activos cargados</small>
       </div>
       <input
@@ -458,20 +595,59 @@ function SearchSection({
   );
 }
 
+function HomeSection({
+  summary,
+  sources,
+  alerts,
+}: {
+  summary: OperationsSummaryDto | undefined;
+  sources: SourceHealthDto[];
+  alerts: AlertDto[];
+}) {
+  const degraded = sources.filter((source) => statusClass(source.freshness_status ?? source.last_run?.status) !== 'ok');
+  return (
+    <>
+      <section className="panel-section">
+        <div className="panel-heading">
+          <span><MapPinned aria-hidden="true" size={14} /> Centro operativo</span>
+          <small>estado local</small>
+        </div>
+        <div className="home-status">
+          <Metric label="Eventos" value={summary?.events_total ?? 0} />
+          <Metric label="Alertas abiertas" value={alerts.filter((alert) => alert.status === 'open').length} />
+          <Metric label="Fuentes" value={sources.length} />
+          <Metric label="Degradadas" value={degraded.length} tone={degraded.length ? 'warn' : 'ok'} />
+        </div>
+      </section>
+      <section className="panel-section">
+        <div className="panel-heading">
+          <span><ShieldAlert aria-hidden="true" size={14} /> Lectura rapida</span>
+          <small>sin automatismos ocultos</small>
+        </div>
+        <p className="panel-copy">
+          GeoOps muestra datos ingeridos localmente con procedencia, precision y latencia declaradas. Si el resumen esta a cero tras `make demo`, hay un problema de API, CORS o filtros.
+        </p>
+      </section>
+    </>
+  );
+}
+
 function OverviewSection({
   summary,
   filters,
   onFiltersChange,
+  onResetFilters,
 }: {
   summary: OperationsSummaryDto | undefined;
   filters: EventFilters;
   onFiltersChange: (filters: EventFilters) => void;
+  onResetFilters: () => void;
 }) {
   return (
     <>
       <section className="panel-section">
         <div className="panel-heading">
-          <span>Resumen 24 h</span>
+          <span><Gauge aria-hidden="true" size={14} /> Resumen 24 h</span>
           <small>ventana operacional</small>
         </div>
         <div className="summary-grid">
@@ -483,30 +659,41 @@ function OverviewSection({
       </section>
       <section className="panel-section">
         <div className="panel-heading">
-          <span>Filtros</span>
+          <span><SlidersHorizontal aria-hidden="true" size={14} /> Filtros</span>
           <small>mapa y lista</small>
         </div>
         <div className="filter-grid">
-          <select value={filters.timeWindow} onChange={(event) => onFiltersChange({ ...filters, timeWindow: event.target.value as EventFilters['timeWindow'] })}>
-            <option value="6h">6 h</option>
-            <option value="24h">24 h</option>
-            <option value="3d">3 d</option>
-            <option value="7d">7 d</option>
-          </select>
-          <select value={filters.status} onChange={(event) => onFiltersChange({ ...filters, status: event.target.value })}>
-            <option value="">Todos los estados</option>
-            <option value="activo">Activo</option>
-            <option value="estabilizado">Estabilizado</option>
-            <option value="controlado">Controlado</option>
-          </select>
+          <ControlSelect
+            ariaLabel="Ventana temporal"
+            value={filters.timeWindow}
+            onChange={(value) => onFiltersChange({ ...filters, timeWindow: value as EventFilters['timeWindow'] })}
+            options={[
+              { value: '6h', label: '6 h' },
+              { value: '24h', label: '24 h' },
+              { value: '3d', label: '3 d' },
+              { value: '7d', label: '7 d' },
+            ]}
+          />
+          <ControlSelect
+            ariaLabel="Estado de evento"
+            value={filters.status}
+            onChange={(value) => onFiltersChange({ ...filters, status: value })}
+            options={[
+              { value: '', label: 'Todos los estados' },
+              { value: 'activo', label: 'Activo' },
+              { value: 'estabilizado', label: 'Estabilizado' },
+              { value: 'controlado', label: 'Controlado' },
+            ]}
+          />
           <input
             aria-label="Filtrar por fuente"
             value={filters.source}
             onChange={(event) => onFiltersChange({ ...filters, source: event.target.value })}
             placeholder="source_id"
           />
-          <label><input checked={filters.hasImpact} onChange={(event) => onFiltersChange({ ...filters, hasImpact: event.target.checked })} type="checkbox" /> con impacto</label>
-          <label><input checked={filters.hasAlert} onChange={(event) => onFiltersChange({ ...filters, hasAlert: event.target.checked })} type="checkbox" /> con alerta</label>
+          <ToggleField checked={filters.hasImpact} label="con impacto" onChange={(checked) => onFiltersChange({ ...filters, hasImpact: checked })} />
+          <ToggleField checked={filters.hasAlert} label="con alerta" onChange={(checked) => onFiltersChange({ ...filters, hasAlert: checked })} />
+          <button className="panel-action" onClick={onResetFilters} type="button">Limpiar filtros</button>
         </div>
       </section>
     </>
@@ -517,7 +704,7 @@ function SourceHealthSection({ sources }: { sources: SourceHealthDto[] }) {
   return (
     <section className="panel-section tall">
       <div className="panel-heading">
-        <span>Salud de fuentes</span>
+        <span><DatabaseZap aria-hidden="true" size={14} /> Salud de fuentes</span>
         <small>{sources.length} fuentes</small>
       </div>
       <div className="source-list">
@@ -538,7 +725,11 @@ function SourceHealthSection({ sources }: { sources: SourceHealthDto[] }) {
               <dt>Registros</dt>
               <dd>{source.records ?? source.last_run?.records_accepted ?? 0}</dd>
               <dt>Precision</dt>
-              <dd>{formatMeters(source.precision_m)}</dd>
+              <dd>
+                <Tooltip label="Precision declarada por la fuente o por el adaptador. No se inventa si no esta disponible.">
+                  <span>{formatMeters(source.precision_m)}</span>
+                </Tooltip>
+              </dd>
             </dl>
             {(source.stale_reason || source.error) && <p className="source-error">{source.stale_reason ?? source.error}</p>}
           </article>
@@ -562,17 +753,20 @@ function LayerSection({
   return (
     <section className="panel-section tall">
       <div className="panel-heading">
-        <span>Capas</span>
+        <span><Layers aria-hidden="true" size={14} /> Capas</span>
         <small>registry inicial</small>
       </div>
       <div className="layer-list">
         {layerRegistry.map((layer) => (
-          <label className="layer-row" key={layer.id}>
-            <input
-              checked={visibleLayers[layer.id]}
-              onChange={(event) => onLayersChange({ ...visibleLayers, [layer.id]: event.target.checked })}
-              type="checkbox"
-            />
+          <label className="layer-row" key={layer.id} data-enabled={visibleLayers[layer.id] ? 'true' : 'false'}>
+            <span className="switch">
+              <input
+                checked={visibleLayers[layer.id]}
+                onChange={(event) => onLayersChange({ ...visibleLayers, [layer.id]: event.target.checked })}
+                type="checkbox"
+              />
+              <i aria-hidden="true" />
+            </span>
             <span>
               <strong>{layer.title}</strong>
               <small>{layer.legend}</small>
@@ -581,11 +775,20 @@ function LayerSection({
         ))}
       </div>
       <div className="segmented">
-        {(['dark', 'light', 'satellite'] as const).map((item) => (
-          <button className={basemap === item ? 'active' : ''} key={item} onClick={() => onBasemapChange(item)} type="button">
-            {item}
+        {(['dark', 'light', 'satellite'] as const).map((item) => {
+          const labels: Record<Basemap, string> = { dark: 'Oscuro', light: 'Claro', satellite: 'Satelite' };
+          return (
+          <button
+            aria-pressed={basemap === item}
+            className={basemap === item ? 'active' : ''}
+            key={item}
+            onClick={() => onBasemapChange(item)}
+            type="button"
+          >
+            {labels[item]}
           </button>
-        ))}
+          );
+        })}
       </div>
       <div className="future-layers">
         {preparedFutureLayers.map((layer) => <span key={layer}>{layer}</span>)}
@@ -606,7 +809,7 @@ function AssetsSection({
   return (
     <section className="panel-section tall">
       <div className="panel-heading">
-        <span>Activos</span>
+        <span><Target aria-hidden="true" size={14} /> Activos</span>
         <small>{assets.length} activos</small>
       </div>
       <form className="tool-form" onSubmit={onCreateAsset}>
@@ -614,10 +817,13 @@ function AssetsSection({
         <input name="asset_type" placeholder="Tipo" defaultValue="site" required />
         <input name="longitude" placeholder="Longitud" step="0.000001" type="number" required />
         <input name="latitude" placeholder="Latitud" step="0.000001" type="number" required />
-        <select name="criticality" defaultValue="high">
-          <option value="normal">normal</option>
-          <option value="high">high</option>
-        </select>
+        <div className="control-select">
+          <select name="criticality" defaultValue="high" aria-label="Criticidad">
+            <option value="normal">normal</option>
+            <option value="high">high</option>
+          </select>
+          <ChevronDown aria-hidden="true" size={14} />
+        </div>
         <button type="submit">Crear activo</button>
       </form>
       <div className="asset-list">
@@ -649,15 +855,18 @@ function AlertsSection({
   return (
     <section className="panel-section tall">
       <div className="panel-heading">
-        <span>Alertas</span>
+        <span><Bell aria-hidden="true" size={14} /> Alertas</span>
         <small>{alerts.filter((alert) => alert.status === 'open').length} abiertas</small>
       </div>
       <form className="tool-form" onSubmit={onCreateRule}>
         <input name="name" defaultValue="Wildfire near asset" placeholder="Nombre regla" required />
-        <select name="asset_id" required>
-          <option value="">Selecciona activo</option>
-          {assets.map((asset) => <option key={asset.id} value={asset.id}>{asset.name}</option>)}
-        </select>
+        <div className="control-select">
+          <select name="asset_id" required aria-label="Activo de la regla">
+            <option value="">Selecciona activo</option>
+            {assets.map((asset) => <option key={asset.id} value={asset.id}>{asset.name}</option>)}
+          </select>
+          <ChevronDown aria-hidden="true" size={14} />
+        </div>
         <input name="distance_threshold_m" defaultValue="50000" min="1" placeholder="Umbral m" type="number" required />
         <input name="cooldown_minutes" defaultValue="0" min="0" placeholder="Cooldown min" type="number" required />
         <button type="submit">Crear regla</button>
@@ -671,6 +880,35 @@ function AlertsSection({
           </article>
         ))}
       </div>
+    </section>
+  );
+}
+
+function AnalysisSection({ summary }: { summary: OperationsSummaryDto | undefined }) {
+  return (
+    <section className="panel-section tall">
+      <div className="panel-heading">
+        <span><Activity aria-hidden="true" size={14} /> Analisis</span>
+        <small>preparado</small>
+      </div>
+      <div className="analysis-grid">
+        <Metric label="Tipos" value={Object.keys(summary?.events_by_type ?? {}).length} />
+        <Metric label="Fuentes activas" value={Object.keys(summary?.events_by_source ?? {}).length} />
+        <Metric label="Estado dominante" value={Object.keys(summary?.events_by_status ?? {})[0] ?? 'sin dato'} />
+      </div>
+      <p className="panel-copy">Este panel ordena lectura operacional basica. Analitica avanzada y nuevas verticales quedan fuera de este pase.</p>
+    </section>
+  );
+}
+
+function SettingsSection() {
+  return (
+    <section className="panel-section tall">
+      <div className="panel-heading">
+        <span><Settings aria-hidden="true" size={14} /> Configuracion</span>
+        <small>local UI</small>
+      </div>
+      <p className="panel-copy">La preferencia de rail colapsado se guarda solo en el navegador. No modifica datos de negocio ni contratos de API.</p>
     </section>
   );
 }
@@ -760,7 +998,14 @@ function FloatingDetail({
       </div>
       <div className="detail-tabs" role="tablist">
         {tabs.map((item) => (
-          <button className={tab === item.id ? 'active' : ''} key={item.id} onClick={() => onTabChange(item.id)} type="button">
+          <button
+            aria-selected={tab === item.id}
+            className={tab === item.id ? 'active' : ''}
+            key={item.id}
+            onClick={() => onTabChange(item.id)}
+            role="tab"
+            type="button"
+          >
             {item.label}
           </button>
         ))}
@@ -772,7 +1017,12 @@ function FloatingDetail({
             <dt>Fuente estado</dt><dd>{event.properties.status_source_id ?? 'sin fuente oficial'}</dd>
             <dt>Ultima observacion</dt><dd>{formatDate(event.properties.last_observed_at)} · hace {formatAgeFromDate(event.properties.last_observed_at)}</dd>
             <dt>Actualizado</dt><dd>{formatDate(event.properties.updated_at)}</dd>
-            <dt>Precision</dt><dd>{formatMeters(event.properties.precision_m)}</dd>
+            <dt>Precision</dt>
+            <dd>
+              <Tooltip label="Radio o precision declarada. Cuando no exista se muestra sin dato.">
+                <span>{formatMeters(event.properties.precision_m)}</span>
+              </Tooltip>
+            </dd>
             <dt>Severidad</dt><dd>{event.properties.severity ?? 'no declarada'}</dd>
           </dl>
         )}
@@ -836,15 +1086,19 @@ function StatusBadge({ value }: { value: string }) {
 
 function EventListPanel({
   events,
+  allEventsCount,
   selectedEventId,
   alerts,
   impacts,
+  onResetFilters,
   onSelect,
 }: {
   events: EventFeature[];
+  allEventsCount: number;
   selectedEventId: string | null;
   alerts: AlertDto[];
   impacts: ImpactDto[];
+  onResetFilters: () => void;
   onSelect: (event: EventFeature) => void;
 }) {
   return (
@@ -854,6 +1108,13 @@ function EventListPanel({
         <strong>{events.length}</strong>
       </div>
       <div className="event-scroll">
+        {!events.length && (
+          <div className="empty-state">
+            <strong>{allEventsCount ? 'Sin eventos visibles' : 'Sin datos cargados'}</strong>
+            <p>{allEventsCount ? 'Los filtros o el encuadre del mapa ocultan todos los eventos.' : 'Ejecuta make demo y recarga la consola para sembrar eventos locales.'}</p>
+            {allEventsCount ? <button onClick={onResetFilters} type="button">Limpiar filtros</button> : null}
+          </div>
+        )}
         {events.map((event) => {
           const hasAlert = alerts.some((alert) => alert.event_id === event.properties.id && alert.status === 'open');
           const hasImpact = impacts.some((impact) => impact.event_id === event.properties.id);
@@ -874,5 +1135,83 @@ function EventListPanel({
         })}
       </div>
     </aside>
+  );
+}
+
+function Tooltip({ children, disabled, label }: { children: ReactNode; disabled?: boolean; label: string }) {
+  const [open, setOpen] = useState(false);
+  const timer = useRef<number | null>(null);
+
+  function clearTimer() {
+    if (timer.current) {
+      window.clearTimeout(timer.current);
+      timer.current = null;
+    }
+  }
+
+  function openDelayed() {
+    if (disabled) return;
+    clearTimer();
+    timer.current = window.setTimeout(() => setOpen(true), 180);
+  }
+
+  function close() {
+    clearTimer();
+    setOpen(false);
+  }
+
+  return (
+    <span
+      className="tooltip-host"
+      onBlur={close}
+      onFocus={disabled ? undefined : () => setOpen(true)}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') close();
+      }}
+      onMouseEnter={openDelayed}
+      onMouseLeave={close}
+    >
+      {children}
+      {open && (
+        <span className="tooltip-bubble" role="tooltip">
+          {label}
+        </span>
+      )}
+    </span>
+  );
+}
+
+function ControlSelect({
+  ariaLabel,
+  onChange,
+  options,
+  value,
+}: {
+  ariaLabel: string;
+  onChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+  value: string;
+}) {
+  return (
+    <div className="control-select">
+      <select aria-label={ariaLabel} onChange={(event) => onChange(event.target.value)} value={value}>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
+      </select>
+      <ChevronDown aria-hidden="true" size={14} />
+    </div>
+  );
+}
+
+function ToggleField({ checked, label, onChange }: { checked: boolean; label: string; onChange: (checked: boolean) => void }) {
+  return (
+    <label className="toggle-field">
+      <span className="switch">
+        <input checked={checked} onChange={(event) => onChange(event.target.checked)} type="checkbox" />
+        <i aria-hidden="true" />
+      </span>
+      <span>{label}</span>
+    </label>
   );
 }
