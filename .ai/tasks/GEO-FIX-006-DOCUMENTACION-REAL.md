@@ -1,7 +1,7 @@
 # GEO-FIX-006 · Documentacion que no miente
 
 Estado: implementado y validado en `geo-fix-006-documentacion-real`; pendiente
-de revision del PR draft.
+de revision del PR draft #12.
 
 ## Pregunta que responde
 
@@ -106,7 +106,7 @@ Ninguna dependencia nueva. No se modifica el Makefile: el contrato de agente se 
 - [x] `docs/11` refleja `main@c1fcb83` y GEO-WF-002 a GEO-WF-006.
 - [x] No se modifican codigo, migraciones, tests ni el HTML nuevo del usuario.
 - [x] La suite completa termina correctamente.
-- [ ] Existe un unico PR draft sin merge.
+- [x] Existe un unico PR draft sin merge: #12.
 
 ## Documentacion
 
