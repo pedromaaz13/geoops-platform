@@ -1,0 +1,17 @@
+{
+  "name": "geoops-platform",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.30.1",
+  "scripts": {
+    "dev": "pnpm --filter @geoops/web dev",
+    "lint": "pnpm --filter @geoops/web lint",
+    "typecheck": "pnpm --filter @geoops/web typecheck",
+    "test": "pnpm --filter @geoops/web test",
+    "build": "pnpm --filter @geoops/web build",
+    "e2e": "pnpm --filter @geoops/web e2e"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
+  }
+}
