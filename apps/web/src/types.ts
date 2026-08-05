@@ -92,7 +92,10 @@ export interface SourceHealthDto {
   region?: string | null;
   organism?: string | null;
   freshness_status?: string;
+  last_download_at?: string | null;
   last_success_at?: string | null;
+  latest_observed_at?: string | null;
+  download_age_seconds?: number | null;
   data_age_seconds?: number | null;
   pipeline_age_seconds?: number | null;
   ttl_seconds?: number | null;
@@ -141,6 +144,13 @@ export interface OperationsSummaryDto {
   assets_total: number;
   sources_total: number;
   sources_degraded: string[];
+  source_health?: {
+    stale_sources: string[];
+    failed_sources: string[];
+    worst_data_age_seconds: number | null;
+    worst_download_age_seconds: number | null;
+    latest_success_at: string | null;
+  };
   latest_observed_at: string | null;
   latest_ingested_at: string | null;
   manifest: {

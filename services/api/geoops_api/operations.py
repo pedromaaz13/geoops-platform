@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from collections import Counter
+from datetime import datetime, timedelta
 from typing import Any, cast
 from uuid import uuid4
 
@@ -27,6 +28,10 @@ from geoops_api.time import iso_utc, now_utc, parse_utc
 
 MAX_LIMIT = 200
 CALCULATION_VERSION = "proximity-v1"
+DEFAULT_TTL_SECONDS_BY_SOURCE = {
+    "wildfire-public": 86_400,
+}
+STALE_STATUS_REASON = "data or download age exceeded ttl"
 
 
 def _geometry_json(session: Session, geometry: Any) -> dict[str, Any]:
@@ -165,6 +170,12 @@ def _age_seconds(value: Any) -> int | None:
     return max(0, int((now_utc() - parsed).total_seconds()))
 
 
+def _iso_from_age(reference: datetime | None, age_seconds: Any) -> str | None:
+    if reference is None or age_seconds is None:
+        return None
+    return iso_utc(reference - timedelta(seconds=int(age_seconds)))
+
+
 def _manifest_operational_state(session: Session) -> dict[str, Any]:
     manifest = _latest_raw_json(session, "manifest") or {}
     return {
@@ -213,6 +224,26 @@ def operations_summary(session: Session) -> dict[str, Any]:
         "assets_total": session.scalar(select(func.count()).select_from(Asset)) or 0,
         "sources_total": len(sources),
         "sources_degraded": degraded_sources,
+        "source_health": {
+            "stale_sources": [source["id"] for source in sources if source.get("freshness_status") == "stale"],
+            "failed_sources": [source["id"] for source in sources if source.get("freshness_status") == "failed"],
+            "worst_data_age_seconds": max(
+                (source["data_age_seconds"] for source in sources if source.get("data_age_seconds") is not None),
+                default=None,
+            ),
+            "worst_download_age_seconds": max(
+                (
+                    source["download_age_seconds"]
+                    for source in sources
+                    if source.get("download_age_seconds") is not None
+                ),
+                default=None,
+            ),
+            "latest_success_at": max(
+                (source["last_success_at"] for source in sources if source.get("last_success_at")),
+                default=None,
+            ),
+        },
         "latest_observed_at": iso_utc(latest_observed),
         "latest_ingested_at": iso_utc(latest_updated),
         "manifest": _manifest_operational_state(session),
@@ -337,22 +368,59 @@ def list_source_health(session: Session) -> list[dict[str, Any]]:
     sources = list_sources(session)
     source_payload = _latest_raw_json(session, "sources") or {}
     manifest = _manifest_operational_state(session)
+    source_generated_at = parse_utc(source_payload.get("generated_at"))
     source_metadata = {str(item.get("id")): item for item in source_payload.get("sources") or []}
     runs_by_source: dict[str, SourceRun] = {}
+    successful_runs_by_source: dict[str, SourceRun] = {}
     for run in session.scalars(select(SourceRun).order_by(SourceRun.source_id, SourceRun.started_at.desc())).all():
         runs_by_source.setdefault(run.source_id, run)
+        if run.status == "success" and run.records_accepted > 0:
+            successful_runs_by_source.setdefault(run.source_id, run)
     for source in sources:
         latest_run = runs_by_source.get(source["id"])
+        latest_success_run = successful_runs_by_source.get(source["id"])
         metadata = source_metadata.get(str(source["id"]), {})
         metadata_status = metadata.get("status")
         run_status = latest_run.status if latest_run else ("disabled" if not source["enabled"] else "failed")
+        ttl_seconds = metadata.get("ttl_seconds") or DEFAULT_TTL_SECONDS_BY_SOURCE.get(str(source["id"]))
+        last_download_at = (
+            iso_utc(latest_run.finished_at or latest_run.started_at)
+            if latest_run
+            else metadata.get("last_download_at") or metadata.get("last_success_at")
+        )
+        last_success_at = (
+            iso_utc(latest_success_run.finished_at or latest_success_run.started_at)
+            if latest_success_run
+            else metadata.get("last_success_at")
+        )
+        latest_observed_at = (
+            iso_utc(latest_success_run.latest_observed_at)
+            if latest_success_run and latest_success_run.latest_observed_at
+            else metadata.get("latest_observed_at")
+            or metadata.get("latest_data_at")
+            or _iso_from_age(source_generated_at, metadata.get("data_age_seconds"))
+        )
+        download_age_seconds = _age_seconds(last_download_at)
+        data_age_seconds = _age_seconds(latest_observed_at)
+
         freshness_status = "disabled" if not source["enabled"] else run_status
-        if metadata_status == "ok":
+        if metadata_status in {"ok", "success"} and latest_run is None:
             freshness_status = "success"
         elif metadata_status in {"stale", "error", "disabled"}:
             freshness_status = "failed" if metadata_status == "error" else metadata_status
         if latest_run and latest_run.records_rejected and latest_run.records_accepted:
             freshness_status = "partial"
+        stale_reason = metadata.get("stale_reason")
+        if (
+            freshness_status in {"success", "empty"}
+            and ttl_seconds is not None
+            and (
+                (data_age_seconds is not None and data_age_seconds > int(ttl_seconds))
+                or (download_age_seconds is not None and download_age_seconds > int(ttl_seconds))
+            )
+        ):
+            freshness_status = "stale"
+            stale_reason = stale_reason or STALE_STATUS_REASON
         source["last_run"] = None if latest_run is None else {
             "id": latest_run.id,
             "status": latest_run.status,
@@ -368,16 +436,19 @@ def list_source_health(session: Session) -> list[dict[str, Any]]:
         source["region"] = metadata.get("region")
         source["organism"] = metadata.get("name") or source["name"]
         source["freshness_status"] = freshness_status
-        source["last_success_at"] = metadata.get("last_success_at")
-        source["data_age_seconds"] = metadata.get("data_age_seconds") or manifest["data_age_seconds"].get(source["id"])
+        source["last_download_at"] = last_download_at
+        source["last_success_at"] = last_success_at
+        source["latest_observed_at"] = latest_observed_at
+        source["download_age_seconds"] = download_age_seconds
+        source["data_age_seconds"] = data_age_seconds if data_age_seconds is not None else manifest["data_age_seconds"].get(source["id"])
         source["pipeline_age_seconds"] = manifest["pipeline_age_seconds"]
-        source["ttl_seconds"] = metadata.get("ttl_seconds")
+        source["ttl_seconds"] = ttl_seconds
         source["records"] = metadata.get("records") if metadata.get("records") is not None else (
-            latest_run.records_accepted if latest_run else None
+            latest_success_run.records_accepted if latest_success_run else latest_run.records_accepted if latest_run else None
         )
         source["precision_m"] = metadata.get("precision_m")
         source["coverage"] = metadata.get("region")
-        source["stale_reason"] = metadata.get("stale_reason")
+        source["stale_reason"] = stale_reason
         source["error"] = metadata.get("error") or (latest_run.error_message if latest_run else None)
         source["consecutive_failures"] = metadata.get("consecutive_failures")
     return sources

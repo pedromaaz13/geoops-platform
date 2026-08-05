@@ -104,7 +104,9 @@ Piezas existentes:
 - guardia `GEO-WF-003` contra feeds wildfire vacios sospechosos: si hay
   actividad wildfire reciente y la fuente devuelve `features=[]`, se conserva
   el ultimo estado valido, se guarda raw y el `SourceRun` queda fallido con
-  `error_type="suspicious_empty"`.
+  `error_type="suspicious_empty"`;
+- source health `GEO-WF-004` con edad de descarga, edad del dato, ultimo exito,
+  TTL y razon de stale.
 
 ### Frontend
 
@@ -129,7 +131,7 @@ Piezas existentes:
 - No hay gazetteer IGN ni buscador territorial equivalente.
 - No estan los filtros de sensor, confianza, origen y precision al nivel del
   visor.
-- No esta portada toda la logica de salud/stale de fuentes del visor.
+- No estan portadas cuotas ni limitaciones especificas por fuente real.
 - No hay suite de invariantes tan amplia como la del visor original.
 - No hay adaptadores reales AEMET/DGT ni segunda vertical.
 - No hay reconciliacion oficial/satelite por tolerancia y ventana temporal.
@@ -250,7 +252,6 @@ Conclusiones:
 
 - GeoOps tiene flujo MVP wildfire end-to-end, no paridad completa.
 - Falta suite de invariantes equivalente al visor.
-- Falta stale real por fuente con edad de descarga y edad de dato.
 - Falta exponer filtros wildfire de origen/sensor/confianza.
 - Falta reconciliacion oficial/satelite por tolerancia y ventana temporal.
 
@@ -262,7 +263,8 @@ Actualizacion `GEO-WF-002`:
   estado no permitido.
 - `GEO-WF-003` anade el guard historico de salida vacia sospechosa para
   `wildfire-public`.
-- Sigue pendiente stale real por fuente.
+- `GEO-WF-004` anade stale real separando descarga, dato, ultimo exito, TTL y
+  razon de stale.
 
 
 ### CI y pruebas

@@ -12,8 +12,8 @@ Estado del origen durante la inspeccion: `?? .DS_Store` preexistente. No se modi
 GeoOps ya tiene un MVP vertical wildfire con raw persistence, `Observation`,
 `Event`, revisiones, impactos, alertas y endpoints `/v1`. No alcanza todavia la
 paridad backend del visor original: faltan invariantes de publicacion amplios,
-filtros sensor/confianza/origen, medicion de precision por fuente, salud de
-fuentes con cuota y stale real, y pipeline satelite/oficial completo.
+filtros sensor/confianza/origen, medicion de precision por fuente, cuotas por
+fuente y pipeline satelite/oficial completo.
 
 ## Matriz de capacidades
 
@@ -30,11 +30,11 @@ fuentes con cuota y stale real, y pipeline satelite/oficial completo.
 | Falso positivo | `clean` excluye antorchas industriales y baja confianza. | No hay pipeline FIRMS real ni exclusion list. | Fuera de alcance actual | Portar solo cuando exista fuente FIRMS real/fixture. |
 | Cluster satelital | `cluster` agrupa hotspots en incendio candidato. | MVP ingiere incidentes ya agregados. | Pendiente | Tarea futura si GeoOps consume hotspots, no `incidents.geojson`. |
 | Fusion oficial/satelite | `merge` usa tolerancia por precision de fuente y ventana temporal. | Reconciliacion MVP por `source_id + upstream_incident_id`. | Pendiente | Portar comportamiento cuando haya dos observaciones para un mismo evento. |
-| Salida vacia sospechosa | `AGENTS.md` y publicacion evitan interpretar cero como ausencia si historico tenia datos. | `GEO-WF-003` rechaza `features=[]` tras actividad wildfire reciente, conserva raw y ultimo estado valido. | Paridad MVP | Sustituir umbral fijo por TTL real en `GEO-WF-004`. |
-| Salud de fuentes | `SourceHealth` distingue descarga, dato fresco, stale, cuota, separacion medida. | `/v1/sources/health` distingue success/partial/stale/failed/disabled demo con edades basicas. | Parcial | Anadir `latest_data_at`, cuota si aplica, y stale por TTL real de fuente. |
+| Salida vacia sospechosa | `AGENTS.md` y publicacion evitan interpretar cero como ausencia si historico tenia datos. | `GEO-WF-003` rechaza `features=[]` tras actividad wildfire reciente, conserva raw y ultimo estado valido. | Paridad MVP | Afinar por TTL/fuente cuando haya fuentes reales. |
+| Salud de fuentes | `SourceHealth` distingue descarga, dato fresco, stale, cuota, separacion medida. | `GEO-WF-004` separa descarga, dato, ultimo exito, TTL y razon stale para `/v1/sources/health`. | Paridad MVP | Anadir cuotas por fuente si aplica. |
 | Publicacion segura | `validate_or_abort` impide publicar corrupto y conserva ejecucion anterior. | API lee PostGIS; no hay snapshot publico ni guard de publicacion. | Pendiente | Definir `PublicSnapshot` cuando vuelva la publicacion estatica. |
 | Smoke de pipeline | `scripts/smoke_test.py` genera datos sinteticos y valida exclusiones. | `make demo` ingiere fixture y seed de activo/regla. | Parcial | Anadir escenario demo con muchos eventos y fuente degradada. |
-| Pruebas | Suite amplia de invariantes, fuentes, merge, export, E2E visual. | Pytest MVP + Vitest + Playwright; `GEO-WF-002` anade invariantes unitarios y `GEO-WF-003` cubre salida vacia sospechosa. | Parcial | Priorizar stale real y E2E degradados. |
+| Pruebas | Suite amplia de invariantes, fuentes, merge, export, E2E visual. | Pytest MVP + Vitest + Playwright; `GEO-WF-002` anade invariantes, `GEO-WF-003` cubre vacio sospechoso y `GEO-WF-004` cubre stale real. | Parcial | Priorizar filtros y reconciliacion. |
 
 ## Rutas origen consultadas
 
@@ -51,14 +51,10 @@ fuentes con cuota y stale real, y pipeline satelite/oficial completo.
 
 ## Tareas recomendadas
 
-1. `GEO-WF-004 · Source health con stale real`.
-   - Separar edad de descarga, edad del dato, TTL por fuente, razon stale y
-   ultimo exito.
-
-2. `GEO-WF-005 · Filtros wildfire de origen/sensor/confianza`.
+1. `GEO-WF-005 · Filtros wildfire de origen/sensor/confianza`.
    - Solo si el contrato expone esos campos de forma estable.
 
-3. `GEO-WF-006 · Reconciliacion multiobservacion wildfire`.
+2. `GEO-WF-006 · Reconciliacion multiobservacion wildfire`.
    - Portar la idea de tolerancia por precision y ventana temporal cuando
    existan observaciones oficiales y satelitales separadas.
 
@@ -67,8 +63,8 @@ fuentes con cuota y stale real, y pipeline satelite/oficial completo.
 - La UI puede parecer mas madura que el pipeline real.
 - `incidents.geojson` ya llega agregado; no prueba limpieza FIRMS, clustering ni
   exclusion de falsos positivos.
-- La fuente demo es util para desarrollo, pero no sustituye stale real por
-  fuente ni fixtures mas ricos de muchos eventos/fuentes degradadas.
+- La fuente demo es util para desarrollo, pero no sustituye fixtures mas ricos
+  de muchos eventos, cuotas y degradaciones por fuente real.
 - No declarar paridad wildfire completa hasta cerrar las tareas anteriores.
 
 ## GEO-WF-002 cerrado
@@ -95,5 +91,20 @@ Se anadio una guardia de salida vacia sospechosa para `wildfire-public`:
 - no se crean ni modifican `Observation`/`Event`;
 - la API conserva el ultimo estado valido existente.
 
-El umbral de 72h es conservador y provisional. `GEO-WF-004` debe reemplazarlo
-por stale/TTL real por fuente.
+El umbral de 72h es conservador y provisional para detectar cero sospechoso; el
+stale visible de fuentes queda separado en `GEO-WF-004`.
+
+## GEO-WF-004 cerrado
+
+Se anadio source health con stale real:
+
+- `last_download_at` y `download_age_seconds` describen la ultima descarga/run;
+- `latest_observed_at` y `data_age_seconds` describen la edad del fenomeno/dato;
+- `last_success_at` se conserva aunque el ultimo run falle;
+- `ttl_seconds` decide stale cuando existe;
+- `stale_reason` explica la degradacion;
+- `/v1/operations/summary` agrega `stale_sources`, `failed_sources`,
+  `worst_data_age_seconds` y `worst_download_age_seconds`.
+
+No se anadieron fuentes externas ni migraciones. Las cuotas por fuente quedan
+pendientes hasta que exista una fuente real que las declare.
