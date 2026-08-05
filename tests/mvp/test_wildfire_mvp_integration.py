@@ -1,4 +1,6 @@
 import asyncio
+import json
+from datetime import timedelta
 from pathlib import Path
 
 import httpx
@@ -7,6 +9,7 @@ from geoops_api.config import Settings
 from geoops_api.db import create_session_factory
 from geoops_api.main import create_app
 from geoops_api.models import Event, EventRevision, Observation, RawPayload, SourceRun
+from geoops_api.time import now_utc
 from geoops_api.wildfire_ingest import WildfireFeedError, ingest_wildfire_public
 from sqlalchemy import text
 
@@ -39,6 +42,28 @@ async def _request(method: str, path: str, json: dict | None = None) -> httpx.Re
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         return await client.request(method, path, json=json)
+
+
+def _empty_wildfire_fixture(tmp_path: Path) -> Path:
+    target = tmp_path / "empty-wildfire"
+    target.mkdir()
+    for file_name in ("manifest.json", "sources.json", "incidents.geojson"):
+        (target / file_name).write_text((FIXTURE / file_name).read_text(encoding="utf-8"), encoding="utf-8")
+
+    manifest_path = target / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["counts"]["incidents_total"] = 0
+    manifest["counts"]["incidents_satellite_confirmed"] = 0
+    manifest["counts"]["incidents_official_only"] = 0
+    manifest["counts"]["hotspots_24h"] = 0
+    manifest["frp_total_mw"] = 0
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    incidents_path = target / "incidents.geojson"
+    incidents = json.loads(incidents_path.read_text(encoding="utf-8"))
+    incidents["features"] = []
+    incidents_path.write_text(json.dumps(incidents), encoding="utf-8")
+    return target
 
 
 @pytest.mark.integration
@@ -74,6 +99,73 @@ def test_wildfire_ingestion_is_idempotent_and_preserves_raw() -> None:
         assert session.query(SourceRun).count() == 2
         assert session.query(Observation).count() == 2
         assert session.query(Event).count() == 2
+
+
+@pytest.mark.integration
+def test_empty_feed_is_allowed_without_previous_activity(tmp_path: Path) -> None:
+    _clean_database()
+    fixture = _empty_wildfire_fixture(tmp_path)
+    session_factory = create_session_factory()
+    with session_factory() as session:
+        summary = ingest_wildfire_public(session, fixture=fixture)
+
+        assert summary.status == "empty"
+        assert session.query(Event).count() == 0
+        assert session.query(Observation).count() == 0
+        run = session.query(SourceRun).one()
+        assert run.status == "empty"
+        assert run.error_type is None
+
+
+@pytest.mark.integration
+def test_suspicious_empty_feed_after_recent_activity_is_rejected(tmp_path: Path) -> None:
+    _clean_database()
+    fixture = _empty_wildfire_fixture(tmp_path)
+    session_factory = create_session_factory()
+    with session_factory() as session:
+        ingest_wildfire_public(session, fixture=FIXTURE)
+        events_before = session.query(Event).count()
+        observations_before = session.query(Observation).count()
+
+        with pytest.raises(WildfireFeedError, match="empty feed after recent activity"):
+            ingest_wildfire_public(session, fixture=fixture)
+
+        assert session.query(Event).count() == events_before
+        assert session.query(Observation).count() == observations_before
+        assert session.query(RawPayload).count() == 6
+        run = session.query(SourceRun).order_by(SourceRun.started_at.desc()).first()
+        assert run is not None
+        assert run.status == "failed"
+        assert run.error_type == "suspicious_empty"
+        assert run.error_message == "empty feed after recent activity; preserving previous state"
+        assert run.raw_payload_count == 3
+
+    summary_response = asyncio.run(_request("GET", "/v1/operations/summary"))
+    assert summary_response.status_code == 200
+    assert summary_response.json()["events_total"] == events_before
+
+
+@pytest.mark.integration
+def test_old_previous_activity_does_not_block_empty_feed(tmp_path: Path) -> None:
+    _clean_database()
+    fixture = _empty_wildfire_fixture(tmp_path)
+    session_factory = create_session_factory()
+    with session_factory() as session:
+        ingest_wildfire_public(session, fixture=FIXTURE)
+        old_observed_at = now_utc() - timedelta(hours=96)
+        for event in session.query(Event).all():
+            event.last_observed_at = old_observed_at
+        for run in session.query(SourceRun).all():
+            run.latest_observed_at = old_observed_at
+        session.commit()
+
+        summary = ingest_wildfire_public(session, fixture=fixture)
+
+        assert summary.status == "empty"
+        run = session.query(SourceRun).order_by(SourceRun.started_at.desc()).first()
+        assert run is not None
+        assert run.status == "empty"
+        assert run.error_type is None
 
 
 @pytest.mark.integration

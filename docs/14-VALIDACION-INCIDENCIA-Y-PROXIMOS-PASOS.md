@@ -2,7 +2,7 @@
 
 Fecha: 2026-08-05.
 
-Rama: `codex/geoops-ui-quality-system-pass`.
+Rama base consolidada: `main`.
 
 ## 1. Incidencia validada
 
@@ -100,7 +100,11 @@ Piezas existentes:
   alertas;
 - demo seed de activo y regla de proximidad;
 - pruebas MVP de idempotencia, raw, rechazo de estado sin fuente, revisiones,
-  impactos, reglas y alertas.
+  impactos, reglas y alertas;
+- guardia `GEO-WF-003` contra feeds wildfire vacios sospechosos: si hay
+  actividad wildfire reciente y la fuente devuelve `features=[]`, se conserva
+  el ultimo estado valido, se guarda raw y el `SourceRun` queda fallido con
+  `error_type="suspicious_empty"`.
 
 ### Frontend
 
@@ -125,9 +129,10 @@ Piezas existentes:
 - No hay gazetteer IGN ni buscador territorial equivalente.
 - No estan los filtros de sensor, confianza, origen y precision al nivel del
   visor.
-- No esta portada toda la logica de verificacion de fuentes del visor.
+- No esta portada toda la logica de salud/stale de fuentes del visor.
 - No hay suite de invariantes tan amplia como la del visor original.
 - No hay adaptadores reales AEMET/DGT ni segunda vertical.
+- No hay reconciliacion oficial/satelite por tolerancia y ventana temporal.
 
 ### UI pendiente
 
@@ -182,7 +187,8 @@ Adoptar con fuerza en GeoOps:
 - convertir payload roto en fixture antes de corregir parser.
 
 GeoOps ya recoge varias en `AGENTS.md`, pero debe endurecer la parte operativa
-de fuentes y publicacion vacia.
+de fuentes/stale real. La salida vacia sospechosa para `wildfire-public` ya esta
+cubierta por `GEO-WF-003`.
 
 ### Router de `CLAUDE.md`
 
@@ -244,7 +250,6 @@ Conclusiones:
 
 - GeoOps tiene flujo MVP wildfire end-to-end, no paridad completa.
 - Falta suite de invariantes equivalente al visor.
-- Falta guard de salida vacia sospechosa.
 - Falta stale real por fuente con edad de descarga y edad de dato.
 - Falta exponer filtros wildfire de origen/sensor/confianza.
 - Falta reconciliacion oficial/satelite por tolerancia y ventana temporal.
@@ -255,8 +260,9 @@ Actualizacion `GEO-WF-002`:
 - La ingesta rechaza origen incoherente, bbox invalido, precision ausente o no
   positiva, tiempos invertidos, estado sin fuente oficial y vocabulario de
   estado no permitido.
-- Sigue pendiente el guard historico de salida vacia sospechosa y stale real por
-  fuente.
+- `GEO-WF-003` anade el guard historico de salida vacia sospechosa para
+  `wildfire-public`.
+- Sigue pendiente stale real por fuente.
 
 
 ### CI y pruebas

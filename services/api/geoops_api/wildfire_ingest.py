@@ -5,7 +5,7 @@ import json
 import logging
 import urllib.request
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
 from uuid import uuid4
@@ -32,6 +32,7 @@ log = logging.getLogger(__name__)
 SOURCE_ID = "wildfire-public"
 RECONCILIATION_VERSION = "wildfire-upstream-id-v1"
 SUPPORTED_SCHEMA_VERSION = 1
+SUSPICIOUS_EMPTY_LOOKBACK_HOURS = 72
 RAW_ROOT = Path("var/raw")
 SPAIN_BBOX = (-19.0, 27.0, 5.0, 44.5)
 VALID_ORIGINS = {"satelite", "oficial", "ambos"}
@@ -231,6 +232,45 @@ def _ensure_upstream_sources(session: Session, sources_payload: dict[str, Any]) 
         )
 
 
+def _has_recent_wildfire_activity(session: Session, cutoff: datetime) -> bool:
+    recent_event = session.scalar(
+        select(Event.id)
+        .where(Event.event_type == "wildfire", Event.last_observed_at >= cutoff)
+        .limit(1)
+    )
+    if recent_event is not None:
+        return True
+
+    recent_successful_run = session.scalar(
+        select(SourceRun.id)
+        .where(
+            SourceRun.source_id == SOURCE_ID,
+            SourceRun.records_accepted > 0,
+            SourceRun.latest_observed_at >= cutoff,
+        )
+        .limit(1)
+    )
+    return recent_successful_run is not None
+
+
+def _reject_suspicious_empty_feed(
+    session: Session,
+    *,
+    run: SourceRun,
+    raw_payload_count: int,
+) -> None:
+    run.status = "failed"
+    run.error_type = "suspicious_empty"
+    run.error_message = "empty feed after recent activity; preserving previous state"
+    run.records_downloaded = 0
+    run.records_accepted = 0
+    run.records_rejected = 0
+    run.raw_payload_count = raw_payload_count
+    run.finished_at = now_utc()
+    session.commit()
+    raise WildfireFeedError(run.error_message)
+
+
 def _store_raw_payloads(session: Session, run_id: str, payloads: dict[str, bytes]) -> dict[str, RawPayload]:
     fetched_at = now_utc()
     date_part = fetched_at.date().isoformat()
@@ -403,6 +443,11 @@ def ingest_wildfire_public(
         run.finished_at = now_utc()
         session.commit()
         raise WildfireFeedError(run.error_message)
+
+    if not features and _has_recent_wildfire_activity(
+        session, now_utc() - timedelta(hours=SUSPICIOUS_EMPTY_LOOKBACK_HOURS)
+    ):
+        _reject_suspicious_empty_feed(session, run=run, raw_payload_count=len(raw_payloads))
 
     _ensure_upstream_sources(session, sources)
 
