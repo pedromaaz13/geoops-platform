@@ -15,6 +15,11 @@ class Settings:
 
 
 def get_settings() -> Settings:
+    local_vite_origins = ",".join(
+        f"http://{host}:{port}"
+        for port in range(5173, 5180)
+        for host in ("127.0.0.1", "localhost")
+    )
     return Settings(
         service_name=os.getenv("GEOOPS_SERVICE_NAME", "geoops-api"),
         environment=os.getenv("GEOOPS_ENVIRONMENT", "development"),
@@ -26,7 +31,7 @@ def get_settings() -> Settings:
         api_port=int(os.getenv("GEOOPS_API_PORT", "8000")),
         cors_origins=[
             origin.strip()
-            for origin in os.getenv("GEOOPS_CORS_ORIGINS", "http://127.0.0.1:5173,http://localhost:5173").split(",")
+            for origin in os.getenv("GEOOPS_CORS_ORIGINS", local_vite_origins).split(",")
             if origin.strip()
         ],
     )

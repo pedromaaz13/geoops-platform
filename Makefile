@@ -39,7 +39,8 @@ wait-db: docker-check
 dev: docker-check
 	@echo "Starting PostGIS, FastAPI and the GeoOps web app."
 	@echo "API: http://127.0.0.1:$${GEOOPS_API_PORT:-8000}"
-	@echo "Web: http://127.0.0.1:5173"
+	@echo "Web: Vite starts at http://127.0.0.1:5173 and may use 5174-5179 if the port is busy."
+	@echo "Open the Local URL printed by Vite, then navigate to /operations."
 	@echo "Stop with Ctrl-C, then run 'make stop' to stop PostGIS."
 	docker compose up -d db
 	$(MAKE) wait-db

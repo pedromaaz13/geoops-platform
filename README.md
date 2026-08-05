@@ -82,8 +82,13 @@ make migrate
 ```
 
 - API: `http://127.0.0.1:8000`
-- Web: `http://127.0.0.1:5173`
-- Consola: `http://127.0.0.1:5173/operations`
+- Web: Vite imprime la URL real. Normalmente `http://127.0.0.1:5173`; si el
+  puerto esta ocupado puede usar `5174-5179`.
+- Consola: abre la URL local impresa por Vite y navega a `/operations`.
+
+La API permite CORS local para `127.0.0.1` y `localhost` en los puertos
+`5173-5179`, de forma que `make demo && make dev` siga cargando datos aunque
+Vite use un puerto alternativo.
 
 Para detener PostGIS:
 
