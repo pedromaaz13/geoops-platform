@@ -1,0 +1,70 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "satellite-only-aracena",
+        "origin": "satelite",
+        "satellite_confirmed": true,
+        "official_confirmed": false,
+        "confirmed_by": "",
+        "status": null,
+        "status_origen": "satelite",
+        "municipio": null,
+        "provincia": null,
+        "n_hotspots": 12,
+        "sensors": "VIIRS_NOAA20_NRT",
+        "frp_total_mw": 96.0,
+        "intensity": "media",
+        "area_est_ha": 169.0,
+        "position_precision_m": 375.0,
+        "first_detected": "2026-08-04T15:51:00Z",
+        "last_detected": "2026-08-04T15:51:00Z",
+        "started_at": null,
+        "ultima_observacion_h": 7.0,
+        "nucleo_cercano": "Aracena",
+        "nucleo_cercano_km": 1.1,
+        "suelo_clase": "Bosque de coníferas",
+        "suelo_tipo": "forestal"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-6.559684544376115, 37.9019879002724]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "official-eslida",
+        "origin": "ambos",
+        "satellite_confirmed": true,
+        "official_confirmed": true,
+        "confirmed_by": "112cv",
+        "status": "activo",
+        "status_origen": "oficial",
+        "municipio": "Eslida",
+        "provincia": "Castelló",
+        "n_hotspots": 21,
+        "sensors": "VIIRS_NOAA20_NRT",
+        "frp_total_mw": 330.36,
+        "intensity": "alta",
+        "area_est_ha": 295.0,
+        "position_precision_m": 375.0,
+        "first_detected": "2026-08-04T19:51:00Z",
+        "last_detected": "2026-08-04T20:51:00Z",
+        "started_at": null,
+        "ultima_observacion_h": 2.0,
+        "detalle_oficial": "CV-223 Km4 Eslida > Aín",
+        "nucleo_cercano": "Alcudia de Veo",
+        "nucleo_cercano_km": 3.0,
+        "suelo_clase": "Bosque de coníferas",
+        "suelo_tipo": "forestal"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-0.38212408090101124, 39.89875585769801]
+      }
+    }
+  ]
+}

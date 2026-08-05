@@ -1,5 +1,15 @@
 # Ontología y modelo de datos
 
+## Estado MVP wildfire
+
+La migración `0001_mvp_core` materializa el núcleo mínimo: `Source`,
+`SourceRun`, `RawPayload`, `Observation`, `Event`, `EventObservation`,
+`EventRevision`, `Asset`, `Impact`, `AlertRule` y `Alert`. Las geometrías
+puntuales viven en PostGIS con SRID 4326. No existen todavía organizaciones,
+usuarios, casos, canales externos ni modelos de otros tipos de evento.
+
+---
+
 La ontología es el lenguaje común de GeoOps. No debe intentar representar todo
 el mundo en M0; debe modelar con precisión los objetos que ya tienen procesos.
 

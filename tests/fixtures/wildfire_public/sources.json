@@ -1,0 +1,41 @@
+{
+  "generated_at": "2026-08-04T22:51:00Z",
+  "sources": [
+    {
+      "id": "firms_viirs",
+      "name": "NASA FIRMS VIIRS",
+      "region": "España",
+      "kind": "satelite",
+      "critical": true,
+      "status": "ok",
+      "last_success_at": "2026-08-04T22:30:00Z",
+      "age_seconds": 1260,
+      "ttl_seconds": 7200,
+      "records": 33,
+      "precision_m": 375.0,
+      "error": null,
+      "consecutive_failures": 0,
+      "data_age_seconds": 7200,
+      "max_data_age_seconds": 14400,
+      "stale_reason": null
+    },
+    {
+      "id": "112cv",
+      "name": "112 Comunitat Valenciana",
+      "region": "Comunitat Valenciana",
+      "kind": "oficial",
+      "critical": false,
+      "status": "ok",
+      "last_success_at": "2026-08-04T22:46:00Z",
+      "age_seconds": 300,
+      "ttl_seconds": 300,
+      "records": 1,
+      "precision_m": 100.0,
+      "error": null,
+      "consecutive_failures": 0,
+      "data_age_seconds": null,
+      "max_data_age_seconds": null,
+      "stale_reason": null
+    }
+  ]
+}

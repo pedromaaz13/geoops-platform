@@ -27,6 +27,8 @@ Estimación relativa: S.
 
 ## Corte 1 · Incendios de extremo a extremo
 
+Estado: implementado dentro de `GEO-MVP-001`, pendiente de validación final en PR.
+
 Pregunta de negocio: ¿qué incendios reconciliados del visor existen ahora como eventos consultables en GeoOps?
 
 Demo observable:
@@ -72,6 +74,9 @@ Estimación relativa: L.
 
 ## Corte 2 · Procedencia y evolución
 
+Estado: implementado en su versión MVP para wildfire: observaciones, fuentes,
+tiempos, precisión, salud de fuente y revisiones por cambios relevantes.
+
 Pregunta de negocio: ¿por qué GeoOps afirma que un evento existe y cómo ha cambiado?
 
 Demo observable: ficha de evento con observaciones, fuentes, `observed_at`, `ingested_at`, precisión, salud de fuente y revisiones.
@@ -97,6 +102,8 @@ Qué queda fuera: activos, impactos, alertas y segundo tipo de evento.
 Estimación relativa: M.
 
 ## Corte 3 · Segundo tipo de evento
+
+Estado: siguiente corte recomendado. No implementado.
 
 Pregunta de negocio: ¿GeoOps modela algo que no sea wildfire sin romper el núcleo?
 
@@ -128,6 +135,9 @@ Qué queda fuera: rutas alternativas, navegación, alertas y cálculo de impacto
 Estimación relativa: M.
 
 ## Corte 4 · Primer activo e impacto
+
+Estado: implementado en versión MVP con activos puntuales e impacto por
+proximidad sobre wildfire.
 
 Pregunta de negocio: ¿qué activo se ve afectado por un evento y por qué?
 
@@ -161,6 +171,9 @@ Qué queda fuera: alertas multicanal, casos, usuarios y permisos.
 Estimación relativa: M.
 
 ## Corte 5 · Primera regla y alerta
+
+Estado: implementado en versión MVP con una regla interna de proximidad y alerta
+deduplicada. No incluye canales externos.
 
 Pregunta de negocio: ¿puede GeoOps avisar de una condición operacional simple y verificable?
 

@@ -1,5 +1,14 @@
 # Interfaz y visualización
 
+## Estado MVP wildfire
+
+La consola `/operations` implementa mapa MapLibre, lista de eventos, detalle con
+procedencia y latencias separadas, salud de fuentes, creación de activo puntual,
+regla de proximidad, alerta interna y acknowledge. No hay todavía layer registry,
+timeline avanzada, deck.gl ni Kepler.gl.
+
+---
+
 La consola operacional se inspira en el patrón de Disaster Ninja: mapa central,
 lista de eventos, detalle, capas, leyenda, herramientas y tiempo. No copia su
 marca ni su implementación completa.

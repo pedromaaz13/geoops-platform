@@ -1,5 +1,15 @@
 # Pruebas, invariantes y observabilidad
 
+## Estado MVP wildfire
+
+Las pruebas del MVP cubren migración desde base vacía, ingesta idempotente,
+raw preservado, rechazo de estado sin fuente, revisión por cambio relevante,
+flujo API de asset-impact-rule-alert-ack, prueba React y smoke E2E de la consola.
+La observabilidad sigue siendo logging estructurado mínimo; métricas formales
+quedan para cortes posteriores.
+
+---
+
 La calidad del visor de incendios procede de bloquear errores plausibles y
 silenciosos. GeoOps mantiene esa estrategia.
 

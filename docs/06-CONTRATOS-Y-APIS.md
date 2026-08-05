@@ -1,5 +1,15 @@
 # Contratos y APIs
 
+## Estado MVP wildfire
+
+El contrato `wildfire-public` v1 está documentado en
+`docs/contracts/wildfire-public-feed-v1.md` y probado mediante fixture local. La
+API `/v1` implementada cubre eventos, detalle, observaciones, revisiones,
+fuentes, runs, activos, impactos, reglas y alertas. SSE, OpenAPI generado y
+tipos generados quedan fuera del MVP.
+
+---
+
 Los contratos separan los repositorios, los servicios y el frontend. Todo
 contrato público tiene versión y pruebas.
 

@@ -8,7 +8,7 @@ endif
 GEOOPS_DATABASE_URL ?= postgresql://geoops:geoops@localhost:5432/geoops_dev
 GEOOPS_TEST_DATABASE_URL ?= $(GEOOPS_DATABASE_URL)
 
-.PHONY: setup dev stop lint typecheck test test-unit test-integration build e2e check docker-check wait-db
+.PHONY: setup dev stop migrate lint typecheck test test-unit test-integration build e2e check docker-check wait-db demo reset-demo
 
 setup:
 	@test -f .env || cp .env.example .env
@@ -51,8 +51,11 @@ dev: docker-check
 stop: docker-check
 	docker compose stop
 
+migrate:
+	uv run alembic upgrade head
+
 lint:
-	uv run ruff check services tests
+	uv run ruff check services tests alembic
 	pnpm --filter @geoops/web lint
 
 typecheck:
@@ -66,6 +69,7 @@ test-unit:
 test-integration: docker-check
 	docker compose up -d db
 	$(MAKE) wait-db
+	$(MAKE) migrate
 	GEOOPS_TEST_DATABASE_URL="$(GEOOPS_TEST_DATABASE_URL)" uv run pytest -m integration
 
 test: test-unit test-integration
@@ -74,7 +78,7 @@ build:
 	uv build
 	pnpm --filter @geoops/web build
 
-e2e:
+e2e: build
 	pnpm --filter @geoops/web e2e
 
 check:
@@ -82,5 +86,17 @@ check:
 	$(MAKE) lint
 	$(MAKE) typecheck
 	$(MAKE) test
-	$(MAKE) build
 	$(MAKE) e2e
+
+demo: docker-check
+	docker compose up -d db
+	$(MAKE) wait-db
+	$(MAKE) migrate
+	uv run geoops-ingestion wildfire-public --fixture tests/fixtures/wildfire_public
+	uv run geoops-ingestion demo-seed
+	@echo "Demo data ready. Run 'make dev' for API and web."
+
+reset-demo: docker-check
+	@echo "This removes the local demo database volume and var/raw. Press Ctrl-C to abort."; sleep 3
+	docker compose down -v
+	rm -rf var/raw

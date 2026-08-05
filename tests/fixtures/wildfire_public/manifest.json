@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-08-04T22:51:00Z",
+  "pipeline_age_seconds": 240,
+  "data_age_seconds": {
+    "firms_viirs": 7200,
+    "official": 3600
+  },
+  "worst_data_age_seconds": 7200,
+  "counts": {
+    "incidents_total": 2,
+    "incidents_satellite_confirmed": 2,
+    "incidents_official_only": 0,
+    "hotspots_24h": 33,
+    "hotspots_suppressed_industrial": 0,
+    "hotspots_suppressed_lowconf": 0
+  },
+  "frp_total_mw": 426.36,
+  "degraded": false,
+  "degraded_reason": null,
+  "demo": true,
+  "demo_reason": "Reduced fixture for GeoOps MVP tests."
+}
