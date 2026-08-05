@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True)
@@ -11,6 +11,7 @@ class Settings:
     database_url: str
     api_host: str
     api_port: int
+    cors_origins: list[str] = field(default_factory=list)
 
 
 def get_settings() -> Settings:
@@ -23,4 +24,9 @@ def get_settings() -> Settings:
         ),
         api_host=os.getenv("GEOOPS_API_HOST", "0.0.0.0"),
         api_port=int(os.getenv("GEOOPS_API_PORT", "8000")),
+        cors_origins=[
+            origin.strip()
+            for origin in os.getenv("GEOOPS_CORS_ORIGINS", "http://127.0.0.1:5173,http://localhost:5173").split(",")
+            if origin.strip()
+        ],
     )
