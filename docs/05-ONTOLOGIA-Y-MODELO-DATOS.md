@@ -30,21 +30,25 @@ el mundo en M0; debe modelar con precisión los objetos que ya tienen procesos.
 
 ## 2. Source
 
+Implementado (`services/api/geoops_api/models.py:16`):
+
 ```text
 id
 name
 kind
-owner
-region
-license
-criticality
 enabled
-configuration_reference
+criticality
+created_at
 ```
+
+**Previsto, no implementado** (estado en [`docs/11`](11-ESTADO-DEL-PROYECTO.md)):
+`owner`, `region`, `license`, `configuration_reference`.
 
 No contiene secretos.
 
 ## 3. SourceRun
+
+Implementado (`services/api/geoops_api/models.py:27`):
 
 ```text
 id
@@ -56,11 +60,14 @@ records_downloaded
 records_accepted
 records_rejected
 latest_observed_at
-payload_hash
-raw_uri
+raw_payload_count
 error_type
 error_message
 ```
+
+El raw se localiza vía `RawPayload.content_hash` / `storage_uri`
+(`models.py:44`), no con `payload_hash` / `raw_uri` en el run. Estos dos campos
+son **previstos, no implementados** (estado en [`docs/11`](11-ESTADO-DEL-PROYECTO.md)).
 
 Estados:
 
@@ -75,6 +82,8 @@ disabled
 
 ## 4. Observation
 
+Implementado (`services/api/geoops_api/models.py:57`):
+
 ```text
 id
 source_id
@@ -84,22 +93,26 @@ event_type
 observed_at
 published_at
 ingested_at
-time_precision
 geometry
-spatial_precision
 precision_m
 confidence
 attributes
 raw_payload_id
 ```
 
+**Previsto, no implementado** (estado en [`docs/11`](11-ESTADO-DEL-PROYECTO.md)):
+`time_precision` y `spatial_precision`. Hoy solo existe `precision_m`.
+
 Es inmutable.
 
 ## 5. Event
 
+Implementado íntegro (`services/api/geoops_api/models.py:75`); la columna real
+de `type` es `event_type`. `valid_from` y `valid_to` **existen** (`models.py:90`).
+
 ```text
 id
-type
+type            # columna: event_type
 subtype
 title
 summary
@@ -155,25 +168,32 @@ source_observation_ids
 
 ## 8. Asset
 
+Implementado (`services/api/geoops_api/models.py:123`); la columna real de `type`
+es `asset_type`:
+
 ```text
 id
-organization_id
-type
 name
+type            # columna: asset_type
 geometry
 criticality
-tags
-valid_from
-valid_to
-attributes
+created_at
+updated_at
 ```
+
+**Previsto, no implementado** (estado en [`docs/11`](11-ESTADO-DEL-PROYECTO.md)):
+`organization_id`, `tags`, `valid_from`, `valid_to`, `attributes`. A diferencia de
+`Event`, el `Asset` actual **no** tiene ventanas de validez.
 
 ## 9. Route
 
-Puede ser subtipo de Asset o entidad independiente cuando necesite segmentos,
-origen, destino y ventanas.
+**Previsto, no implementado** (estado en [`docs/11`](11-ESTADO-DEL-PROYECTO.md)): la
+entidad `Route` no existe en `models.py`. Puede ser subtipo de Asset o entidad
+independiente cuando necesite segmentos, origen, destino y ventanas.
 
 ## 10. Impact
+
+Implementado (`services/api/geoops_api/models.py:135`):
 
 ```text
 id
@@ -186,8 +206,10 @@ score
 reasons
 calculated_at
 calculation_version
-expires_at
 ```
+
+**Previsto, no implementado** (estado en [`docs/11`](11-ESTADO-DEL-PROYECTO.md)):
+`expires_at`.
 
 Tipos iniciales:
 
@@ -201,23 +223,29 @@ population_exposure
 
 ## 11. AlertRule
 
+Implementado (`services/api/geoops_api/models.py:150`). El modelo M0 es más simple
+que el diseño objetivo: una regla apunta a un `asset_id` con umbral de distancia,
+no a vocabularios ni canales:
+
 ```text
 id
-organization_id
 name
 enabled
-event_types
-asset_types
-conditions
-channels
+event_type          # singular, no event_types
+asset_id            # un asset, no asset_types
+distance_threshold_m
 cooldown_minutes
 created_at
 updated_at
 ```
 
-Las condiciones se validan mediante esquema; no guardar SQL arbitrario.
+**Previsto, no implementado** (estado en [`docs/11`](11-ESTADO-DEL-PROYECTO.md)):
+`organization_id`, `event_types`, `asset_types`, `conditions`, `channels`. Las
+condiciones se validan mediante esquema; no guardar SQL arbitrario.
 
 ## 12. Alert
+
+Implementado (`services/api/geoops_api/models.py:164`):
 
 ```text
 id
@@ -227,15 +255,20 @@ asset_id
 impact_id
 status
 message
+deduplication_key
 created_at
-sent_at
 acknowledged_at
 resolved_at
-deduplication_key
-delivery_attempts
 ```
 
+**Previsto, no implementado** (estado en [`docs/11`](11-ESTADO-DEL-PROYECTO.md)):
+`sent_at`, `delivery_attempts` (dependen de la entrega por canales externos, aún
+no modelada).
+
 ## 13. Case
+
+**Previsto, no implementado** (estado en [`docs/11`](11-ESTADO-DEL-PROYECTO.md)): la
+entidad `Case` no existe en `models.py`. Diseño objetivo:
 
 ```text
 id

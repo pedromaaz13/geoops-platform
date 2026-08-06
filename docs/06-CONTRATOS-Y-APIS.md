@@ -1,5 +1,8 @@
 # Contratos y APIs
 
+> El registro canónico de lo **previsto, no implementado** vive en
+> [`docs/11`](11-ESTADO-DEL-PROYECTO.md). Aquí solo se marca en contexto.
+
 ## Estado MVP wildfire
 
 El contrato `wildfire-public` v1 está documentado en

@@ -1,5 +1,8 @@
 # Arquitectura backend
 
+> El registro canónico de lo **previsto, no implementado** vive en
+> [`docs/11`](11-ESTADO-DEL-PROYECTO.md). Aquí solo se marca en contexto.
+
 ## Estado MVP wildfire
 
 El backend actual es un monolito modular FastAPI. La API y la CLI comparten

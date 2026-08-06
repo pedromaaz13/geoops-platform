@@ -1,5 +1,8 @@
 # Interfaz y visualización
 
+> El registro canónico de lo **previsto, no implementado** vive en
+> [`docs/11`](11-ESTADO-DEL-PROYECTO.md). Aquí solo se marca en contexto.
+
 ## Estado MVP wildfire
 
 La consola `/operations` implementa mapa MapLibre, lista de eventos, detalle con

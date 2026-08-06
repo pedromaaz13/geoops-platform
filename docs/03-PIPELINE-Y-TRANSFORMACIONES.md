@@ -441,6 +441,11 @@ público resistente a picos.
 
 ## 4. Interfaces internas recomendadas
 
+> **Previsto, no implementado.** Los seis `Protocol` de abajo son el diseño
+> objetivo del pipeline, no código actual. El repo M0 ejecuta un pipeline
+> funcional (ver §4.1). Estado canónico en
+> [`docs/11`](11-ESTADO-DEL-PROYECTO.md).
+
 ```python
 class SourceAdapter(Protocol):
     source_id: str
@@ -480,6 +485,31 @@ class ImpactCalculator(Protocol):
         assets: list[Asset],
     ) -> list[ImpactDraft]: ...
 ```
+
+### 4.1 Pipeline real M0 (wildfire)
+
+Hoy el pipeline **no** usa esos `Protocol`. Es un flujo funcional en
+`services/api/geoops_api/wildfire_ingest.py`, orquestado por
+`ingest_wildfire_public()` (`wildfire_ingest.py:535`):
+
+1. **Descarga/lectura** del feed (fixture local o URL base).
+2. **Validación de invariantes** con `_validate_feed()`
+   (`wildfire_ingest.py:138`): esquema, bbox España+Canarias, precisión positiva.
+3. **Guardia de vacío sospechoso** con `_reject_suspicious_empty_feed()`
+   (`wildfire_ingest.py:278`): rechaza `features=[]` si hubo actividad reciente
+   (`_has_recent_wildfire_activity`, `:257`), conserva el último estado válido.
+4. **Raw inmutable** con `_store_raw_payloads()` (`wildfire_ingest.py:296`):
+   persiste el payload con `content_hash` (`sha256_bytes`, `:98`).
+5. **Normalización** a `Observation` desde las propiedades del feature
+   (`_observation_attrs`, `:335`; `_event_snapshot_from_observation`, `:345`).
+6. **Reconciliación por `upstream-id`** con `_find_event()`
+   (`wildfire_ingest.py:458`) y `_merge_event_snapshot()` (`:487`); los cambios
+   materiales generan un `EventRevision` (`_changed_fields`, `:400`).
+
+No hay hoy capa de `Enricher` ni `ImpactCalculator` ejecutándose: son
+**previstos** (estado en [`docs/11`](11-ESTADO-DEL-PROYECTO.md)). Los adaptadores
+de fuente se describen igual en
+[`docs/07`](07-FUENTES-Y-ADAPTADORES.md).
 
 ---
 
