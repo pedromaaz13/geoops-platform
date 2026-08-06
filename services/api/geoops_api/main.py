@@ -113,6 +113,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             },
         )
 
+    def organization_id_dep() -> str:
+        # Organización activa, de momento fija por entorno (sin auth: GEO-PROD-001).
+        return active_settings.organization_id
+
+    ORG_ID = Depends(organization_id_dep)
+
     @app.get("/health", response_model=schemas.HealthStatus)
     def health() -> dict[str, str]:
         return {
@@ -184,8 +190,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
 
     @app.get("/v1/operations/summary", response_model=schemas.OperationsSummary)
-    def api_operations_summary(session: Session = DB_SESSION) -> dict[str, Any]:
-        return operations_summary(session)
+    def api_operations_summary(session: Session = DB_SESSION, organization_id: str = ORG_ID) -> dict[str, Any]:
+        return operations_summary(session, organization_id)
 
     @app.get("/v1/events/{event_id}", response_model=schemas.EventDetailFeature)
     def api_event_detail(event_id: str, session: Session = DB_SESSION) -> dict[str, Any]:
@@ -222,43 +228,52 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return list_source_runs(session)
 
     @app.post("/v1/assets", status_code=201, response_model=schemas.Asset)
-    def api_create_asset(payload: schemas.AssetCreate, session: Session = DB_SESSION) -> dict[str, Any]:
-        return create_asset(session, payload.model_dump())
+    def api_create_asset(
+        payload: schemas.AssetCreate, session: Session = DB_SESSION, organization_id: str = ORG_ID
+    ) -> dict[str, Any]:
+        return create_asset(session, payload.model_dump(), organization_id)
 
     @app.get("/v1/assets", response_model=list[schemas.Asset])
-    def api_assets(session: Session = DB_SESSION) -> list[dict[str, Any]]:
-        return list_assets(session)
+    def api_assets(session: Session = DB_SESSION, organization_id: str = ORG_ID) -> list[dict[str, Any]]:
+        return list_assets(session, organization_id)
 
     @app.get("/v1/assets/{asset_id}", response_model=schemas.Asset)
-    def api_asset(asset_id: str, session: Session = DB_SESSION) -> dict[str, Any]:
-        for asset in list_assets(session):
+    def api_asset(asset_id: str, session: Session = DB_SESSION, organization_id: str = ORG_ID) -> dict[str, Any]:
+        for asset in list_assets(session, organization_id):
             if asset["id"] == asset_id:
                 return asset
         raise HTTPException(status_code=404, detail="asset not found")
 
     @app.delete("/v1/assets/{asset_id}", status_code=204)
-    def api_delete_asset(asset_id: str, session: Session = DB_SESSION) -> None:
-        delete_asset(session, asset_id)
+    def api_delete_asset(asset_id: str, session: Session = DB_SESSION, organization_id: str = ORG_ID) -> None:
+        if not delete_asset(session, asset_id, organization_id):
+            raise HTTPException(status_code=404, detail="asset not found")
 
     @app.get("/v1/events/{event_id}/impacts", response_model=list[schemas.Impact])
-    def api_event_impacts(event_id: str, session: Session = DB_SESSION) -> list[dict[str, Any]]:
-        return list_event_impacts(session, event_id)
+    def api_event_impacts(
+        event_id: str, session: Session = DB_SESSION, organization_id: str = ORG_ID
+    ) -> list[dict[str, Any]]:
+        return list_event_impacts(session, event_id, organization_id)
 
     @app.post("/v1/alert-rules", status_code=201, response_model=schemas.AlertRule)
-    def api_create_alert_rule(payload: schemas.AlertRuleCreate, session: Session = DB_SESSION) -> dict[str, Any]:
-        return create_alert_rule(session, payload.model_dump())
+    def api_create_alert_rule(
+        payload: schemas.AlertRuleCreate, session: Session = DB_SESSION, organization_id: str = ORG_ID
+    ) -> dict[str, Any]:
+        return create_alert_rule(session, payload.model_dump(), organization_id)
 
     @app.get("/v1/alert-rules", response_model=list[schemas.AlertRule])
-    def api_alert_rules(session: Session = DB_SESSION) -> list[dict[str, Any]]:
-        return list_alert_rules(session)
+    def api_alert_rules(session: Session = DB_SESSION, organization_id: str = ORG_ID) -> list[dict[str, Any]]:
+        return list_alert_rules(session, organization_id)
 
     @app.get("/v1/alerts", response_model=list[schemas.Alert])
-    def api_alerts(session: Session = DB_SESSION) -> list[dict[str, Any]]:
-        return list_alerts(session)
+    def api_alerts(session: Session = DB_SESSION, organization_id: str = ORG_ID) -> list[dict[str, Any]]:
+        return list_alerts(session, organization_id)
 
     @app.post("/v1/alerts/{alert_id}/acknowledge", response_model=schemas.Alert)
-    def api_acknowledge_alert(alert_id: str, session: Session = DB_SESSION) -> dict[str, Any]:
-        alert = acknowledge_alert(session, alert_id)
+    def api_acknowledge_alert(
+        alert_id: str, session: Session = DB_SESSION, organization_id: str = ORG_ID
+    ) -> dict[str, Any]:
+        alert = acknowledge_alert(session, alert_id, organization_id)
         if alert is None:
             raise HTTPException(status_code=404, detail="alert not found")
         return alert

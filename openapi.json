@@ -61,6 +61,10 @@
             "title": "Message",
             "type": "string"
           },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
           "resolved_at": {
             "anyOf": [
               {
@@ -83,6 +87,7 @@
         },
         "required": [
           "id",
+          "organization_id",
           "rule_id",
           "event_id",
           "event_title",
@@ -138,6 +143,10 @@
             "title": "Name",
             "type": "string"
           },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
           "updated_at": {
             "anyOf": [
               {
@@ -152,6 +161,7 @@
         },
         "required": [
           "id",
+          "organization_id",
           "name",
           "enabled",
           "event_type",
@@ -221,6 +231,10 @@
             "title": "Criticality",
             "type": "string"
           },
+          "geometry_kind": {
+            "title": "Geometry Kind",
+            "type": "string"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -237,6 +251,10 @@
             "title": "Name",
             "type": "string"
           },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
           "updated_at": {
             "anyOf": [
               {
@@ -251,8 +269,10 @@
         },
         "required": [
           "id",
+          "organization_id",
           "name",
           "asset_type",
+          "geometry_kind",
           "longitude",
           "latitude",
           "criticality"
@@ -272,13 +292,39 @@
             "title": "Criticality",
             "type": "string"
           },
+          "geometry": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geometry"
+          },
           "latitude": {
-            "title": "Latitude",
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
           },
           "longitude": {
-            "title": "Longitude",
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
           },
           "name": {
             "title": "Name",
@@ -286,9 +332,7 @@
           }
         },
         "required": [
-          "name",
-          "longitude",
-          "latitude"
+          "name"
         ],
         "title": "AssetCreate",
         "type": "object"
@@ -296,7 +340,7 @@
       "EventDetailFeature": {
         "properties": {
           "geometry": {
-            "$ref": "#/components/schemas/PointGeometry"
+            "$ref": "#/components/schemas/GeoJSONGeometry"
           },
           "properties": {
             "$ref": "#/components/schemas/EventDetailProperties"
@@ -342,6 +386,10 @@
               }
             ],
             "title": "Created At"
+          },
+          "geometry_kind": {
+            "title": "Geometry Kind",
+            "type": "string"
           },
           "id": {
             "title": "Id",
@@ -390,6 +438,9 @@
               }
             ],
             "title": "Precision M"
+          },
+          "representative_point": {
+            "$ref": "#/components/schemas/PointGeometry"
           },
           "revisions_count": {
             "anyOf": [
@@ -522,7 +573,9 @@
           "type",
           "title",
           "sources",
-          "attributes"
+          "attributes",
+          "geometry_kind",
+          "representative_point"
         ],
         "title": "EventDetailProperties",
         "type": "object"
@@ -530,7 +583,7 @@
       "EventFeature": {
         "properties": {
           "geometry": {
-            "$ref": "#/components/schemas/PointGeometry"
+            "$ref": "#/components/schemas/GeoJSONGeometry"
           },
           "properties": {
             "$ref": "#/components/schemas/EventProperties"
@@ -602,6 +655,10 @@
             ],
             "title": "Created At"
           },
+          "geometry_kind": {
+            "title": "Geometry Kind",
+            "type": "string"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -627,6 +684,9 @@
               }
             ],
             "title": "Precision M"
+          },
+          "representative_point": {
+            "$ref": "#/components/schemas/PointGeometry"
           },
           "severity": {
             "anyOf": [
@@ -748,7 +808,9 @@
           "type",
           "title",
           "sources",
-          "attributes"
+          "attributes",
+          "geometry_kind",
+          "representative_point"
         ],
         "title": "EventProperties",
         "type": "object"
@@ -823,6 +885,23 @@
           "total_matched"
         ],
         "title": "FeatureCollectionMeta",
+        "type": "object"
+      },
+      "GeoJSONGeometry": {
+        "properties": {
+          "coordinates": {
+            "title": "Coordinates"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "coordinates"
+        ],
+        "title": "GeoJSONGeometry",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -906,6 +985,10 @@
             "title": "Intersects",
             "type": "boolean"
           },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
           "reasons": {
             "items": {
               "type": "string"
@@ -920,6 +1003,7 @@
         },
         "required": [
           "id",
+          "organization_id",
           "event_id",
           "asset_id",
           "asset_name",
@@ -1056,7 +1140,7 @@
             "type": "string"
           },
           "geometry": {
-            "$ref": "#/components/schemas/PointGeometry"
+            "$ref": "#/components/schemas/GeoJSONGeometry"
           },
           "id": {
             "title": "Id",

@@ -27,6 +27,9 @@ POLY = Polygon([(-0.40, 39.88), (-0.36, 39.88), (-0.36, 39.92), (-0.40, 39.92), 
 LINE = LineString([(-0.42, 39.90), (-0.34, 39.90)])
 
 
+ORGS = ("default", "org-a", "org-b")
+
+
 def _clean() -> None:
     with create_session_factory()() as session:
         session.execute(
@@ -36,6 +39,11 @@ def _clean() -> None:
                 "sources, organizations RESTART IDENTITY CASCADE"
             )
         )
+        # Las organizaciones se aprovisionan antes que sus activos (como en prod).
+        for org in ORGS:
+            session.execute(
+                text("INSERT INTO organizations (id, name, created_at) VALUES (:id, :id, now())").bindparams(id=org)
+            )
         session.commit()
 
 

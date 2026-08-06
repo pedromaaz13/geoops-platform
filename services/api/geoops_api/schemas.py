@@ -21,8 +21,16 @@ JsonDict = dict[str, Any]
 
 
 class PointGeometry(BaseModel):
+    # Punto (representative_point): coordenadas tipadas para cámara/etiquetas.
     type: str
     coordinates: tuple[float, float]
+
+
+class GeoJSONGeometry(BaseModel):
+    # Geometría genérica (Point/LineString/Polygon/Multi*): las coordenadas varían
+    # por tipo, así que quedan sin tipar y el mapa las interpreta en runtime.
+    type: str
+    coordinates: Any
 
 
 # --- Events ---------------------------------------------------------------
@@ -47,6 +55,8 @@ class EventProperties(BaseModel):
     updated_at: str | None = None
     sources: list[str]
     attributes: JsonDict
+    geometry_kind: str
+    representative_point: PointGeometry
 
 
 class EventDetailProperties(EventProperties):
@@ -57,13 +67,13 @@ class EventDetailProperties(EventProperties):
 
 class EventFeature(BaseModel):
     type: str
-    geometry: PointGeometry
+    geometry: GeoJSONGeometry
     properties: EventProperties
 
 
 class EventDetailFeature(BaseModel):
     type: str
-    geometry: PointGeometry
+    geometry: GeoJSONGeometry
     properties: EventDetailProperties
 
 
@@ -92,7 +102,7 @@ class Observation(BaseModel):
     observed_at: str | None = None
     published_at: str | None = None
     ingested_at: str | None = None
-    geometry: PointGeometry
+    geometry: GeoJSONGeometry
     precision_m: float | None = None
     confidence: float | None = None
     attributes: JsonDict
@@ -232,8 +242,10 @@ class SourceRun(BaseModel):
 
 class Asset(BaseModel):
     id: str
+    organization_id: str
     name: str
     asset_type: str
+    geometry_kind: str
     longitude: float
     latitude: float
     criticality: str
@@ -243,6 +255,7 @@ class Asset(BaseModel):
 
 class Impact(BaseModel):
     id: str
+    organization_id: str
     event_id: str
     asset_id: str
     asset_name: str
@@ -257,6 +270,7 @@ class Impact(BaseModel):
 
 class AlertRule(BaseModel):
     id: str
+    organization_id: str
     name: str
     enabled: bool
     event_type: str
@@ -269,6 +283,7 @@ class AlertRule(BaseModel):
 
 class Alert(BaseModel):
     id: str
+    organization_id: str
     rule_id: str
     event_id: str
     event_title: str
@@ -304,8 +319,10 @@ class ReadyStatus(BaseModel):
 
 class AssetCreate(BaseModel):
     name: str
-    longitude: float
-    latitude: float
+    # Geometría GeoJSON genérica (línea/polígono) o punto por longitude/latitude.
+    geometry: JsonDict | None = None
+    longitude: float | None = None
+    latitude: float | None = None
     asset_type: str = "site"
     criticality: str = "normal"
 

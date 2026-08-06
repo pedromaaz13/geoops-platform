@@ -23,6 +23,8 @@ const event = {
             updated_at: '2026-08-05T01:00:00Z',
             sources: ['wildfire-public'],
     attributes: {},
+    geometry_kind: 'point',
+    representative_point: { type: 'Point', coordinates: [-0.382, 39.899] },
     observations_count: 1,
     revisions_count: 0,
     impacts_count: 1,
@@ -31,7 +33,7 @@ const event = {
 
 async function mockReadOnlyOperationsApi(page: Page) {
   await page.route('**/v1/events?**', (route) =>
-    route.fulfill({ json: { type: 'FeatureCollection', features: [event], meta: { next_cursor: null, generated_at: 'now', partial: false } } }),
+    route.fulfill({ json: { type: 'FeatureCollection', features: [event], meta: { next_cursor: null, generated_at: 'now', partial: false, total_matched: 1 } } }),
   );
   await page.route('**/v1/events/event-1', (route) => route.fulfill({ json: event }));
   await page.route('**/v1/events/event-1/observations', (route) => route.fulfill({ json: [] }));
@@ -83,7 +85,7 @@ test('operations wildfire demo flow', async ({ page }) => {
   let acknowledged = false;
 
   await page.route('**/v1/events?**', (route) =>
-    route.fulfill({ json: { type: 'FeatureCollection', features: [event], meta: { next_cursor: null, generated_at: 'now', partial: false } } }),
+    route.fulfill({ json: { type: 'FeatureCollection', features: [event], meta: { next_cursor: null, generated_at: 'now', partial: false, total_matched: 1 } } }),
   );
   await page.route('**/v1/events/event-1', (route) => route.fulfill({ json: event }));
   await page.route('**/v1/events/event-1/observations', (route) =>

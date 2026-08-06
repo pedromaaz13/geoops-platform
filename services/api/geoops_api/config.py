@@ -12,6 +12,8 @@ class Settings:
     api_host: str
     api_port: int
     cors_origins: list[str] = field(default_factory=list)
+    # Organización activa. De momento fija por entorno (sin auth: eso es GEO-PROD-001).
+    organization_id: str = "default"
 
 
 def get_settings() -> Settings:
@@ -34,4 +36,5 @@ def get_settings() -> Settings:
             for origin in os.getenv("GEOOPS_CORS_ORIGINS", local_vite_origins).split(",")
             if origin.strip()
         ],
+        organization_id=os.getenv("GEOOPS_ORGANIZATION_ID", "default"),
     )

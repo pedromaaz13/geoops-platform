@@ -4,13 +4,32 @@ from datetime import datetime
 from typing import Any
 
 from geoalchemy2 import Geometry
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Computed, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from geoops_api.db import Base
 
 JsonDict = dict[str, Any]
+
+# Columnas derivadas mantenidas por Postgres (GENERATED STORED). Se declaran con
+# Computed para que el ORM las trate como read-only y nunca las inserte; la DDL
+# real vive en la migración 0002. Ver ADR de geometría genérica.
+_GEOMETRY_KIND_EXPR = (
+    "CASE "
+    "WHEN GeometryType(geometry) IN ('POINT', 'MULTIPOINT') THEN 'point' "
+    "WHEN GeometryType(geometry) IN ('LINESTRING', 'MULTILINESTRING') THEN 'line' "
+    "ELSE 'area' END"
+)
+_REPRESENTATIVE_POINT_EXPR = "ST_PointOnSurface(geometry)"
+
+
+class Organization(Base):
+    __tablename__ = "organizations"
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    name: Mapped[str] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class Source(Base):
@@ -65,7 +84,11 @@ class Observation(Base):
     observed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     ingested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    geometry: Mapped[Any] = mapped_column(Geometry("POINT", srid=4326))
+    geometry: Mapped[Any] = mapped_column(Geometry("GEOMETRY", srid=4326))
+    geometry_kind: Mapped[str] = mapped_column(String(10), Computed(_GEOMETRY_KIND_EXPR))
+    representative_point: Mapped[Any] = mapped_column(
+        Geometry("POINT", srid=4326), Computed(_REPRESENTATIVE_POINT_EXPR), nullable=True
+    )
     precision_m: Mapped[float | None] = mapped_column(Float)
     confidence: Mapped[float | None] = mapped_column(Float)
     attributes: Mapped[JsonDict] = mapped_column(JSONB, default=dict)
@@ -84,7 +107,11 @@ class Event(Base):
     status_source_id: Mapped[str | None] = mapped_column(String(80), ForeignKey("sources.id"))
     severity: Mapped[str | None] = mapped_column(String(80))
     severity_source_id: Mapped[str | None] = mapped_column(String(80), ForeignKey("sources.id"))
-    geometry: Mapped[Any] = mapped_column(Geometry("POINT", srid=4326))
+    geometry: Mapped[Any] = mapped_column(Geometry("GEOMETRY", srid=4326))
+    geometry_kind: Mapped[str] = mapped_column(String(10), Computed(_GEOMETRY_KIND_EXPR))
+    representative_point: Mapped[Any] = mapped_column(
+        Geometry("POINT", srid=4326), Computed(_REPRESENTATIVE_POINT_EXPR), nullable=True
+    )
     precision_m: Mapped[float | None] = mapped_column(Float)
     confidence: Mapped[float | None] = mapped_column(Float)
     valid_from: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -123,10 +150,16 @@ class EventRevision(Base):
 class Asset(Base):
     __tablename__ = "assets"
 
+    organization_id: Mapped[str] = mapped_column(String(80), ForeignKey("organizations.id"))
+
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     name: Mapped[str] = mapped_column(String(200))
     asset_type: Mapped[str] = mapped_column(String(80))
-    geometry: Mapped[Any] = mapped_column(Geometry("POINT", srid=4326))
+    geometry: Mapped[Any] = mapped_column(Geometry("GEOMETRY", srid=4326))
+    geometry_kind: Mapped[str] = mapped_column(String(10), Computed(_GEOMETRY_KIND_EXPR))
+    representative_point: Mapped[Any] = mapped_column(
+        Geometry("POINT", srid=4326), Computed(_REPRESENTATIVE_POINT_EXPR), nullable=True
+    )
     criticality: Mapped[str] = mapped_column(String(40))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -134,6 +167,8 @@ class Asset(Base):
 
 class Impact(Base):
     __tablename__ = "impacts"
+
+    organization_id: Mapped[str] = mapped_column(String(80), ForeignKey("organizations.id"))
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     event_id: Mapped[str] = mapped_column(String(36), ForeignKey("events.id"))
@@ -150,6 +185,8 @@ class Impact(Base):
 class AlertRule(Base):
     __tablename__ = "alert_rules"
 
+    organization_id: Mapped[str] = mapped_column(String(80), ForeignKey("organizations.id"))
+
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     name: Mapped[str] = mapped_column(String(200))
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -163,6 +200,8 @@ class AlertRule(Base):
 
 class Alert(Base):
     __tablename__ = "alerts"
+
+    organization_id: Mapped[str] = mapped_column(String(80), ForeignKey("organizations.id"))
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     rule_id: Mapped[str] = mapped_column(String(36), ForeignKey("alert_rules.id"))

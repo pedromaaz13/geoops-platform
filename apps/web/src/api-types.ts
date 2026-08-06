@@ -324,6 +324,8 @@ export interface components {
             impact_id: string;
             /** Message */
             message: string;
+            /** Organization Id */
+            organization_id: string;
             /** Resolved At */
             resolved_at?: string | null;
             /** Rule Id */
@@ -349,6 +351,8 @@ export interface components {
             id: string;
             /** Name */
             name: string;
+            /** Organization Id */
+            organization_id: string;
             /** Updated At */
             updated_at?: string | null;
         };
@@ -384,6 +388,8 @@ export interface components {
             created_at?: string | null;
             /** Criticality */
             criticality: string;
+            /** Geometry Kind */
+            geometry_kind: string;
             /** Id */
             id: string;
             /** Latitude */
@@ -392,6 +398,8 @@ export interface components {
             longitude: number;
             /** Name */
             name: string;
+            /** Organization Id */
+            organization_id: string;
             /** Updated At */
             updated_at?: string | null;
         };
@@ -407,16 +415,20 @@ export interface components {
              * @default normal
              */
             criticality: string;
+            /** Geometry */
+            geometry?: {
+                [key: string]: unknown;
+            } | null;
             /** Latitude */
-            latitude: number;
+            latitude?: number | null;
             /** Longitude */
-            longitude: number;
+            longitude?: number | null;
             /** Name */
             name: string;
         };
         /** EventDetailFeature */
         EventDetailFeature: {
-            geometry: components["schemas"]["PointGeometry"];
+            geometry: components["schemas"]["GeoJSONGeometry"];
             properties: components["schemas"]["EventDetailProperties"];
             /** Type */
             type: string;
@@ -431,6 +443,8 @@ export interface components {
             confidence?: number | null;
             /** Created At */
             created_at?: string | null;
+            /** Geometry Kind */
+            geometry_kind: string;
             /** Id */
             id: string;
             /** Impacts Count */
@@ -441,6 +455,7 @@ export interface components {
             observations_count?: number | null;
             /** Precision M */
             precision_m?: number | null;
+            representative_point: components["schemas"]["PointGeometry"];
             /** Revisions Count */
             revisions_count?: number | null;
             /** Severity */
@@ -470,7 +485,7 @@ export interface components {
         };
         /** EventFeature */
         EventFeature: {
-            geometry: components["schemas"]["PointGeometry"];
+            geometry: components["schemas"]["GeoJSONGeometry"];
             properties: components["schemas"]["EventProperties"];
             /** Type */
             type: string;
@@ -493,12 +508,15 @@ export interface components {
             confidence?: number | null;
             /** Created At */
             created_at?: string | null;
+            /** Geometry Kind */
+            geometry_kind: string;
             /** Id */
             id: string;
             /** Last Observed At */
             last_observed_at?: string | null;
             /** Precision M */
             precision_m?: number | null;
+            representative_point: components["schemas"]["PointGeometry"];
             /** Severity */
             severity?: string | null;
             /** Severity Source Id */
@@ -544,6 +562,13 @@ export interface components {
             /** Total Matched */
             total_matched: number;
         };
+        /** GeoJSONGeometry */
+        GeoJSONGeometry: {
+            /** Coordinates */
+            coordinates: unknown;
+            /** Type */
+            type: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -578,6 +603,8 @@ export interface components {
             impact_type: string;
             /** Intersects */
             intersects: boolean;
+            /** Organization Id */
+            organization_id: string;
             /** Reasons */
             reasons: string[];
             /** Score */
@@ -620,7 +647,7 @@ export interface components {
             confidence?: number | null;
             /** Event Type */
             event_type: string;
-            geometry: components["schemas"]["PointGeometry"];
+            geometry: components["schemas"]["GeoJSONGeometry"];
             /** Id */
             id: string;
             /** Ingested At */
