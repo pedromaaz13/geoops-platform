@@ -1,8 +1,9 @@
 # GEO-CORE-001 · Geometría genérica y Organization
 
-Estado: en planificación (rama `geo-core-001-geometria-y-organizacion`). Requiere
-**aprobación del plan antes de escribir código** (tarea de mayor riesgo). Orden:
-`docs/16-PROMPTS-DE-SESION.md` sesión 2.
+Estado: **implementado** en `geo-core-001-geometria-y-organizacion` (PR draft, plan
+aprobado). Evidencia: migración `0002`, `models.py`, `operations.py` (aislamiento por
+org), `schemas.py`, `alembic` up/down, `tests/api/test_geometry_and_org.py` (8),
+`docs/adr/ADR-004`. Orden: `docs/16-PROMPTS-DE-SESION.md` sesión 2.
 
 ## Pregunta que responde
 

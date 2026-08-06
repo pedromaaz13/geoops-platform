@@ -38,7 +38,8 @@ Primera vertical: wildfire-public
 - PostgreSQL/PostGIS en Docker Compose; FastAPI, CLI y Vite se ejecutan en host.
 - Raw local inmutable en `var/raw`, observaciones, eventos y revisiones.
 - Ingesta manual `wildfire-public` desde fixture o URL configurable y replay de raw.
-- Eventos y activos con geometría `POINT`; impactos por proximidad.
+- Eventos y activos con geometría genérica `GEOMETRY(4326)` (point/line/area) y
+  organización propietaria en activos/reglas/alertas/impactos; impactos por proximidad.
 - Reglas wildfire internas, alertas y transición a `acknowledged`.
 - API para salud, eventos, timeline, fuentes, runs, activos, impactos, reglas y alertas.
 - Consola React/MapLibre en una shell única con rail, drawers, lista, mapa y ficha.
@@ -75,8 +76,11 @@ conectadas.
 
 ## Limitaciones verificadas
 
-- No existen autenticación, organizaciones, multiempresa, rutas ni casos.
-- `Event.geometry` y `Asset.geometry` solo admiten `POINT`.
+- No existe autenticación (usuarios/login/RLS): es `GEO-PROD-001`. Sí existe
+  `Organization` con `organization_id` en activos/reglas/alertas/impactos y
+  aislamiento por endpoint, fijado por `GEOOPS_ORGANIZATION_ID` (`GEO-CORE-001`).
+- Geometría genérica `GEOMETRY(4326)` en eventos/observaciones/activos con
+  `geometry_kind` y `representative_point` (`GEO-CORE-001`). No hay rutas ni casos.
 - No hay scheduler, notificaciones externas ni infraestructura productiva.
 - Los endpoints no declaran `response_model`; OpenAPI runtime no constituye un
   contrato versionado y el frontend mantiene tipos manuales.
@@ -102,7 +106,7 @@ Registro canónico único de capacidades diseñadas pero **no** presentes en
 deben mantener su propia lista (ver `AGENTS.md §11`).
 
 **Modelo de datos** (`services/api/geoops_api/models.py`):
-- Entidades inexistentes: `Organization`, `Route`, `Case`, usuarios y multiempresa.
+- Entidades inexistentes: `Route`, `Case`, usuarios y multiempresa (auth). `Organization` ya existe (`GEO-CORE-001`).
 - `Source`: `owner`, `region`, `license`, `configuration_reference`.
 - `SourceRun`: `payload_hash`, `raw_uri` (hoy el raw se localiza vía `RawPayload`).
 - `Observation`: `time_precision`, `spatial_precision` (hoy solo `precision_m`).
@@ -110,7 +114,6 @@ deben mantener su propia lista (ver `AGENTS.md §11`).
 - `Impact`: `expires_at`.
 - `AlertRule`: `organization_id`, `event_types`, `asset_types`, `conditions`, `channels`.
 - `Alert`: `sent_at`, `delivery_attempts`.
-- `Event.geometry` y `Asset.geometry` solo admiten `POINT`.
 
 **Pipeline** (`docs/03 §4`):
 - Los `Protocol` `SourceAdapter`, `ObservationNormalizer`, `ObservationValidator`,

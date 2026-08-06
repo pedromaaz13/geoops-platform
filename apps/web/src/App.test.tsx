@@ -21,6 +21,8 @@ const event = {
     updated_at: '2026-08-05T01:00:00Z',
     sources: ['wildfire-public'],
     attributes: { origin: 'ambos', sensors: 'VIIRS_NOAA20_NRT' },
+    geometry_kind: 'point',
+    representative_point: { type: 'Point', coordinates: [-0.38, 39.89] },
     valid_from: '2026-08-04T20:51:00Z',
     valid_to: null,
     created_at: '2026-08-05T01:00:00Z',
@@ -35,7 +37,7 @@ function mockFetch() {
     'fetch',
     vi.fn((url: string) => {
       if (url.includes('/v1/events?')) {
-        return Promise.resolve(Response.json({ type: 'FeatureCollection', features: [event], meta: { next_cursor: null, generated_at: 'now', partial: false } }));
+        return Promise.resolve(Response.json({ type: 'FeatureCollection', features: [event], meta: { next_cursor: null, generated_at: 'now', partial: false, total_matched: 1 } }));
       }
       if (url.includes('/v1/events/event-1/observations')) {
         return Promise.resolve(Response.json([
