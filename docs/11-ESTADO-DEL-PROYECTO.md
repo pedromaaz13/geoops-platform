@@ -80,8 +80,9 @@ conectadas.
 - No hay scheduler, notificaciones externas ni infraestructura productiva.
 - Los endpoints no declaran `response_model`; OpenAPI runtime no constituye un
   contrato versionado y el frontend mantiene tipos manuales.
-- `/v1/events` limita a 200, ordena por UUID y puede devolver `next_cursor` con
-  `meta.partial=false`; seguimiento en `GEO-FIX-001`.
+- `/v1/events` limita a 200 por página, pero declara el truncamiento
+  (`meta.partial`, `meta.total_matched`), ordena por `(last_observed_at DESC, id)`
+  con cursor keyset y rechaza params desconocidos con 400 (`GEO-FIX-001`, cerrado).
 - El motor de alertas no aplica todavía cooldown material ni resolución
   automática; seguimiento en `GEO-FIX-002`.
 - La reconciliación espacial actual calcula candidatos en Python y duplica
@@ -127,7 +128,7 @@ deben mantener su propia lista (ver `AGENTS.md §11`).
 - No existe `packages/` ni layer registry más allá del actual de la consola.
 
 **Defectos y trabajo abierto con ficha:**
-- Paginación/orden veraces de `/v1/events`: `GEO-FIX-001`.
+- Paginación/orden veraces de `/v1/events`: `GEO-FIX-001` (cerrado).
 - Cooldown material y resolución de alertas: `GEO-FIX-002`.
 - Contratos tipados y validación de entrada: `GEO-FIX-003` (cerrado).
 - Reconciliación sobre PostGIS sin coords derivadas: `GEO-FIX-004`.

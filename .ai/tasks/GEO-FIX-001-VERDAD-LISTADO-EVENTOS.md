@@ -1,6 +1,8 @@
 # GEO-FIX-001 · Verdad en el listado de eventos
 
-Estado: previsto, no implementado. Fuente de diseño: `docs/GEOOPS-REVISION-2.md §7`.
+Estado: **implementado** en `geo-fix-001-listado-veraz` (PR draft). Fuente de diseño:
+`docs/GEOOPS-REVISION-2.md §7`. Evidencia: `operations.py` (orden/cursor/total_matched),
+`main.py` (400 params desconocidos), `tests/api/test_events_pagination.py`.
 
 ## Pregunta que responde
 
@@ -75,11 +77,12 @@ Ninguna nueva. Conviene coordinar con GEO-FIX-003 para tipar la respuesta.
 
 ## Criterios de aceptación
 
-- [ ] Orden estable y cursor sobre `(last_observed_at DESC, id)`.
-- [ ] `meta.partial` y `meta.total_matched` veraces.
-- [ ] Parámetros desconocidos → 400 con campo.
-- [ ] El front muestra «N de M».
+- [x] Orden estable y cursor sobre `(last_observed_at DESC, id)`.
+- [x] `meta.partial` y `meta.total_matched` veraces.
+- [x] Parámetros desconocidos → 400 `INVALID_REQUEST`.
+- [x] El front muestra «Mostrando N de M».
 
 ## Documentación
 
-- [ ] `docs/06-CONTRATOS-Y-APIS.md` actualizado con la nueva semántica de `meta`.
+- [x] `docs/06-CONTRATOS-Y-APIS.md` actualizado con la nueva semántica de `meta`.
+- [x] `docs/11-ESTADO-DEL-PROYECTO.md` marca el defecto como cerrado.
