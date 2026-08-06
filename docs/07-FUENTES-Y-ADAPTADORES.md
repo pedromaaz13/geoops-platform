@@ -1,5 +1,8 @@
 # Fuentes y adaptadores
 
+> El registro canónico de lo **previsto, no implementado** vive en
+> [`docs/11`](11-ESTADO-DEL-PROYECTO.md). Aquí solo se marca en contexto.
+
 ## Estado MVP wildfire
 
 La única fuente conectada es `wildfire-public`, con fixture reproducible y URL

@@ -94,6 +94,48 @@ Los detalles y evidencias de estos defectos están en
 `docs/GEOOPS-REVISION-2.md` y, para esta corrección documental, en
 `.ai/debug/GEO-FIX-006-HALLAZGOS-FUERA-DE-ALCANCE.md`.
 
+## Previsto, no implementado
+
+Registro canónico único de capacidades diseñadas pero **no** presentes en
+`main@c1fcb83`. El resto de documentos marca lo aspiracional y **apunta aquí**; no
+deben mantener su propia lista (ver `AGENTS.md §11`).
+
+**Modelo de datos** (`services/api/geoops_api/models.py`):
+- Entidades inexistentes: `Organization`, `Route`, `Case`, usuarios y multiempresa.
+- `Source`: `owner`, `region`, `license`, `configuration_reference`.
+- `SourceRun`: `payload_hash`, `raw_uri` (hoy el raw se localiza vía `RawPayload`).
+- `Observation`: `time_precision`, `spatial_precision` (hoy solo `precision_m`).
+- `Asset`: `organization_id`, `tags`, `valid_from`, `valid_to`, `attributes`.
+- `Impact`: `expires_at`.
+- `AlertRule`: `organization_id`, `event_types`, `asset_types`, `conditions`, `channels`.
+- `Alert`: `sent_at`, `delivery_attempts`.
+- `Event.geometry` y `Asset.geometry` solo admiten `POINT`.
+
+**Pipeline** (`docs/03 §4`):
+- Los `Protocol` `SourceAdapter`, `ObservationNormalizer`, `ObservationValidator`,
+  `EventReconciler`, `Enricher`, `ImpactCalculator` son diseño; hoy el pipeline es
+  funcional (`services/api/geoops_api/wildfire_ingest.py`).
+- No se ejecuta capa de `Enricher` ni `ImpactCalculator`.
+
+**Contratos y backend** (`docs/04`, `docs/06`; seguimiento en `GEO-FIX-003`):
+- Endpoints sin `response_model`; OpenAPI runtime no es contrato versionado.
+- Tipos TypeScript manuales; sin cliente generado desde OpenAPI.
+- No existen capas `application/domain/infrastructure/interfaces` ni `/v1/stream` SSE.
+
+**Frontend** (`docs/01`, `docs/09`):
+- No hay React Router, Zustand ni deck.gl; `/operations` no es ruta de cliente.
+- No existe `packages/` ni layer registry más allá del actual de la consola.
+
+**Defectos abiertos con ficha:**
+- Paginación/orden veraces de `/v1/events`: `GEO-FIX-001`.
+- Cooldown material y resolución de alertas: `GEO-FIX-002`.
+- Contratos tipados y validación de entrada: `GEO-FIX-003`.
+- Reconciliación sobre PostGIS sin coords derivadas: `GEO-FIX-004`.
+- E2E real sin mocks y `make test-contract`: `GEO-FIX-005`.
+
+**Fuentes** (`docs/07`): AEMET, DGT, IGN, GDACS, Copernicus y demás previstas, no
+conectadas; sin scheduler ni notificaciones externas.
+
 ## Bloqueos
 
 No hay un bloqueo para ejecutar el MVP local. GeoOps no debe considerarse listo
