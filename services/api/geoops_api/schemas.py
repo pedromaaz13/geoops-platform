@@ -71,6 +71,7 @@ class FeatureCollectionMeta(BaseModel):
     next_cursor: str | None = None
     generated_at: str | None = None
     partial: bool
+    total_matched: int
 
 
 class EventFeatureCollection(BaseModel):

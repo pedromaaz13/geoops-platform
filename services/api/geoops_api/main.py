@@ -37,6 +37,27 @@ from geoops_api.readiness import check_postgis_ready
 
 DB_SESSION = Depends(get_session)
 
+# Nombres públicos de query aceptados por GET /v1/events (incluye los alias
+# `from`/`to`). Cualquier otro se rechaza con 400 en vez de ignorarse.
+EVENTS_QUERY_PARAMS = frozenset(
+    {
+        "bbox",
+        "types",
+        "from",
+        "to",
+        "updated_after",
+        "status",
+        "sources",
+        "origins",
+        "sensors",
+        "min_confidence",
+        "has_impact",
+        "has_alert",
+        "limit",
+        "cursor",
+    }
+)
+
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     active_settings = settings or get_settings()
@@ -122,6 +143,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/v1/events", response_model=schemas.EventFeatureCollection)
     def api_list_events(
+        request: Request,
         bbox: str | None = None,
         types: str | None = None,
         from_time: str | None = Query(default=None, alias="from"),
@@ -138,6 +160,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         cursor: str | None = None,
         session: Session = DB_SESSION,
     ) -> dict[str, Any]:
+        # Rechazar params desconocidos en vez de ignorarlos: un cliente que use
+        # `from_time` en lugar de `from` debe enterarse, no recibir un filtro mudo.
+        unknown = [key for key in request.query_params if key not in EVENTS_QUERY_PARAMS]
+        if unknown:
+            raise ValueError(f"unknown query parameters: {', '.join(sorted(set(unknown)))}")
         return list_events(
             session,
             bbox=bbox,

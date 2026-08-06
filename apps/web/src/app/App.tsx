@@ -274,6 +274,7 @@ export function App() {
 
   const data = useOperationsData(selectedEventId, filters);
   const events = data.events.data?.features ?? emptyEvents;
+  const eventsMeta = data.events.data?.meta;
   const sources = data.sources.data ?? emptySources;
   const assets = data.assets.data ?? emptyAssets;
   const alerts = data.alerts.data ?? emptyAlerts;
@@ -441,6 +442,9 @@ export function App() {
         <EventListPanel
           events={visibleEvents}
           allEventsCount={events.length}
+          loadedCount={events.length}
+          totalMatched={eventsMeta?.total_matched ?? events.length}
+          partial={eventsMeta?.partial ?? false}
           selectedEventId={selectedEventId}
           alerts={alerts}
           impacts={selectedImpacts}
@@ -1272,6 +1276,9 @@ function StatusBadge({ value }: { value: string }) {
 function EventListPanel({
   events,
   allEventsCount,
+  loadedCount,
+  totalMatched,
+  partial,
   selectedEventId,
   alerts,
   impacts,
@@ -1283,6 +1290,9 @@ function EventListPanel({
 }: {
   events: EventFeature[];
   allEventsCount: number;
+  loadedCount: number;
+  totalMatched: number;
+  partial: boolean;
   selectedEventId: string | null;
   alerts: AlertDto[];
   impacts: ImpactDto[];
@@ -1314,6 +1324,11 @@ function EventListPanel({
           </button>
         </div>
       </div>
+      {partial && (
+        <div className="events-truncated" role="status">
+          Mostrando {loadedCount} de {totalMatched} — refina los filtros para ver el resto
+        </div>
+      )}
       <div className="event-scroll">
         {!events.length && (
           <div className="empty-state">

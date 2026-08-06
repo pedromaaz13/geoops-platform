@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import binascii
 import json
 from collections import Counter
 from datetime import datetime, timedelta
@@ -70,6 +72,35 @@ def _event_feature(session: Session, event: Event) -> dict[str, Any]:
             "attributes": event.attributes,
         },
     }
+
+
+def _encode_events_cursor(event: Event) -> str:
+    # Cursor keyset opaco sobre la clave de orden (last_observed_at, id). Se
+    # codifica en base64 para que el cliente no dependa de su formato interno.
+    token = f"{iso_utc(event.last_observed_at) or ''}|{event.id}"
+    return base64.urlsafe_b64encode(token.encode("utf-8")).decode("ascii")
+
+
+def _decode_events_cursor(cursor: str) -> tuple[datetime | None, str]:
+    try:
+        raw = base64.urlsafe_b64decode(cursor.encode("ascii")).decode("utf-8")
+        observed_raw, event_id = raw.split("|", 1)
+    except (binascii.Error, UnicodeDecodeError, ValueError) as exc:
+        raise ValueError("cursor invalido") from exc
+    return (parse_utc(observed_raw) if observed_raw else None), event_id
+
+
+def _events_cursor_condition(last_observed_at: datetime | None, event_id: str) -> ColumnElement[bool]:
+    # Orden (last_observed_at DESC NULLS LAST, id ASC): traer lo que va DESPUÉS
+    # de la última fila devuelta, sin duplicados ni huecos.
+    if last_observed_at is not None:
+        return or_(
+            Event.last_observed_at < last_observed_at,
+            and_(Event.last_observed_at == last_observed_at, Event.id > event_id),
+            Event.last_observed_at.is_(None),
+        )
+    # Ya estamos en la sección de last_observed_at NULL, que va al final.
+    return and_(Event.last_observed_at.is_(None), Event.id > event_id)
 
 
 def list_events(
@@ -151,20 +182,31 @@ def list_events(
     if has_alert is not None:
         alert_subquery = select(Alert.event_id).where(Alert.status == "open")
         filters.append(Event.id.in_(alert_subquery) if has_alert else Event.id.not_in(alert_subquery))
-    if cursor:
-        filters.append(Event.id > cursor)
     if filters:
         stmt = stmt.where(and_(*filters))
-    events = session.scalars(stmt.order_by(Event.id).limit(bounded_limit + 1)).all()
-    next_cursor = events[-1].id if len(events) > bounded_limit else None
+
+    # total_matched cuenta TODO lo que casan los filtros, sin el cursor: es la M
+    # de "N de M" y la base para declarar el truncamiento.
+    total_matched = session.scalar(select(func.count()).select_from(stmt.subquery())) or 0
+
+    page_stmt = stmt
+    if cursor:
+        last_observed_at, event_id = _decode_events_cursor(cursor)
+        page_stmt = page_stmt.where(_events_cursor_condition(last_observed_at, event_id))
+
+    page_stmt = page_stmt.order_by(Event.last_observed_at.desc().nullslast(), Event.id.asc())
+    events = session.scalars(page_stmt.limit(bounded_limit + 1)).all()
+    has_more = len(events) > bounded_limit
     events = events[:bounded_limit]
+    next_cursor = _encode_events_cursor(events[-1]) if has_more and events else None
     return {
         "type": "FeatureCollection",
         "features": [_event_feature(session, event) for event in events],
         "meta": {
             "next_cursor": next_cursor,
             "generated_at": iso_utc(now_utc()),
-            "partial": False,
+            "partial": has_more,
+            "total_matched": int(total_matched),
         },
     }
 

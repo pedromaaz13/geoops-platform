@@ -541,6 +541,8 @@ export interface components {
             next_cursor?: string | null;
             /** Partial */
             partial: boolean;
+            /** Total Matched */
+            total_matched: number;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
