@@ -222,7 +222,7 @@ export function App() {
   const [selectedEventId, setSelectedEventId] = useState<string | null>(initialSelectedEvent);
   const [filters, setFilters] = useState<EventFilters>(initialFilters);
   const [visibleLayers, setVisibleLayers] = useState<Record<LayerId, boolean>>(initialLayers);
-  const [basemap, setBasemap] = useState<Basemap>('voyager');
+  const [basemap, setBasemap] = useState<Basemap>('dark');
   const [activePanel, setActivePanel] = useState<ActivePanel>(initialActivePanel);
   const [detailTab, setDetailTab] = useState<DetailTab>(initialDetailTab);
   const [toolPanel, setToolPanel] = useState<ToolPanel>(null);

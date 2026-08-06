@@ -96,7 +96,7 @@ dl {
   gap: 12px;
   border-bottom: 1px solid var(--line);
   padding: 7px 12px;
-  background: linear-gradient(180deg, #0a1724 0%, #07111c 100%);
+  background: linear-gradient(180deg, #0c121a 0%, #0a0f15 100%);
 }
 
 .eyebrow {
@@ -118,7 +118,7 @@ dl {
   display: grid;
   gap: 2px;
   min-width: 0;
-  border-left: 1px solid rgba(76, 155, 255, 0.32);
+  border-left: 1px solid rgba(91, 143, 214, 0.32);
   padding-left: 12px;
 }
 
@@ -154,10 +154,10 @@ dl {
   display: grid;
   gap: 3px;
   min-width: 0;
-  border: 1px solid rgba(38, 59, 80, 0.85);
+  border: 1px solid rgba(40, 51, 64, 0.85);
   border-radius: var(--radius-sm);
   padding: 6px 9px;
-  background: rgba(16, 30, 45, 0.9);
+  background: rgba(22, 29, 38, 0.9);
 }
 
 .metric small {
@@ -203,7 +203,7 @@ dl {
   border: 1px solid rgba(46, 210, 154, 0.4);
   border-radius: var(--radius-sm);
   padding: 5px 8px;
-  background: rgba(16, 30, 45, 0.88);
+  background: rgba(22, 29, 38, 0.88);
   text-align: right;
 }
 
@@ -284,7 +284,7 @@ dl {
 .event-list-panel {
   min-height: 0;
   border-right: 1px solid var(--line);
-  background: rgba(11, 22, 34, 0.96);
+  background: rgba(16, 22, 30, 0.96);
 }
 
 .navigation-rail {
@@ -332,14 +332,14 @@ dl {
 }
 
 .rail-button:hover {
-  border-color: rgba(76, 155, 255, 0.28);
-  background: rgba(18, 50, 82, 0.36);
+  border-color: rgba(91, 143, 214, 0.28);
+  background: rgba(30, 44, 62, 0.36);
   color: var(--ink);
 }
 
 .rail-button.active {
-  border-color: rgba(76, 155, 255, 0.55);
-  background: linear-gradient(90deg, rgba(18, 50, 82, 0.98), rgba(15, 35, 55, 0.74));
+  border-color: rgba(91, 143, 214, 0.55);
+  background: linear-gradient(90deg, rgba(30, 44, 62, 0.98), rgba(22, 31, 43, 0.74));
   color: #dcecff;
   box-shadow: inset 3px 0 0 var(--primary);
 }
@@ -369,9 +369,9 @@ dl {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  border: 1px solid rgba(38, 59, 80, 0.74);
+  border: 1px solid rgba(40, 51, 64, 0.74);
   border-radius: var(--radius-sm);
-  background: rgba(7, 20, 33, 0.82);
+  background: rgba(12, 17, 23, 0.82);
   color: var(--muted);
   font-size: 0.7rem;
   font-weight: 800;
@@ -391,7 +391,7 @@ dl {
   height: 100%;
   overflow: auto;
   border-right: 1px solid var(--line);
-  background: rgba(9, 19, 31, 0.98);
+  background: rgba(14, 19, 26, 0.98);
   padding: 10px;
   font-size: 0.9rem;
 }
@@ -413,15 +413,15 @@ dl {
   height: 28px;
   flex: 0 0 auto;
   place-items: center;
-  border: 1px solid rgba(38, 59, 80, 0.8);
+  border: 1px solid rgba(40, 51, 64, 0.8);
   border-radius: var(--radius-sm);
-  background: rgba(7, 20, 33, 0.84);
+  background: rgba(12, 17, 23, 0.84);
   color: var(--muted);
 }
 
 .drawer-title button:hover,
 .detail-title button:hover {
-  border-color: rgba(76, 155, 255, 0.55);
+  border-color: rgba(91, 143, 214, 0.55);
   color: var(--ink);
 }
 
@@ -437,9 +437,9 @@ dl {
 .panel-section {
   flex: 0 0 auto;
   min-height: 0;
-  border: 1px solid rgba(38, 59, 80, 0.9);
+  border: 1px solid rgba(40, 51, 64, 0.9);
   border-radius: var(--radius-md);
-  background: rgba(16, 30, 45, 0.88);
+  background: rgba(22, 29, 38, 0.88);
   padding: 10px;
 }
 
@@ -486,7 +486,7 @@ dl {
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   padding: 6px 8px;
-  background: #071421;
+  background: #0c1119;
   color: var(--ink);
 }
 
@@ -523,9 +523,9 @@ dl {
 .timeline-row,
 .evidence-row,
 .impact-row {
-  border: 1px solid rgba(38, 59, 80, 0.75);
+  border: 1px solid rgba(40, 51, 64, 0.75);
   border-radius: var(--radius-sm);
-  background: rgba(11, 22, 34, 0.92);
+  background: rgba(16, 22, 30, 0.92);
 }
 
 .search-results button {
@@ -583,7 +583,7 @@ dl {
   inset: 0;
   border: 1px solid rgba(145, 165, 184, 0.45);
   border-radius: 999px;
-  background: rgba(7, 20, 33, 0.95);
+  background: rgba(12, 17, 23, 0.95);
 }
 
 .switch i::after {
@@ -599,8 +599,8 @@ dl {
 }
 
 .switch input:checked + i {
-  border-color: rgba(76, 155, 255, 0.72);
-  background: rgba(18, 50, 82, 0.96);
+  border-color: rgba(91, 143, 214, 0.72);
+  background: rgba(30, 44, 62, 0.96);
 }
 
 .switch input:checked + i::after {
@@ -687,15 +687,15 @@ dl {
   display: flex;
   gap: 8px;
   align-items: start;
-  border: 1px solid rgba(38, 59, 80, 0.75);
+  border: 1px solid rgba(40, 51, 64, 0.75);
   border-radius: var(--radius-sm);
   padding: 8px;
-  background: rgba(11, 22, 34, 0.82);
+  background: rgba(16, 22, 30, 0.82);
 }
 
 .layer-row[data-enabled="true"] {
-  border-color: rgba(76, 155, 255, 0.4);
-  background: rgba(18, 50, 82, 0.34);
+  border-color: rgba(91, 143, 214, 0.4);
+  background: rgba(30, 44, 62, 0.34);
 }
 
 .layer-row span {
@@ -737,7 +737,7 @@ dl {
 .segmented button.active,
 .timeline-control button.active,
 .detail-tabs button.active {
-  border-color: rgba(76, 155, 255, 0.7);
+  border-color: rgba(91, 143, 214, 0.7);
   background: #123252;
   color: #dcecff;
 }
@@ -752,7 +752,7 @@ dl {
 .tool-form button:hover,
 .asset-list button:hover,
 .alert-card button:hover {
-  border-color: rgba(76, 155, 255, 0.55);
+  border-color: rgba(91, 143, 214, 0.55);
   color: var(--ink);
 }
 
@@ -822,10 +822,10 @@ dl {
   min-height: 32px;
   align-items: center;
   gap: 7px;
-  border: 1px solid rgba(38, 59, 80, 0.86);
+  border: 1px solid rgba(40, 51, 64, 0.86);
   border-radius: var(--radius-sm);
   padding: 0 10px;
-  background: rgba(7, 16, 26, 0.86);
+  background: rgba(12, 16, 22, 0.86);
   color: var(--muted);
   font-size: 0.72rem;
   font-weight: 800;
@@ -833,8 +833,8 @@ dl {
 
 .map-toolbar button:hover,
 .map-toolbar button.active {
-  border-color: rgba(76, 155, 255, 0.62);
-  background: rgba(18, 50, 82, 0.88);
+  border-color: rgba(91, 143, 214, 0.62);
+  background: rgba(30, 44, 62, 0.88);
   color: #dcecff;
 }
 
@@ -871,8 +871,8 @@ dl {
 .fallback-map-grid {
   z-index: 1;
   background:
-    linear-gradient(rgba(76, 155, 255, 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(76, 155, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(rgba(91, 143, 214, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(91, 143, 214, 0.045) 1px, transparent 1px),
     radial-gradient(circle at 45% 48%, rgba(91, 143, 214, 0.06), transparent 28%),
     radial-gradient(circle at 58% 38%, rgba(255, 92, 53, 0.08), transparent 20%);
   background-size: 64px 64px, 64px 64px, auto, auto;
@@ -919,10 +919,10 @@ dl {
   left: 16px;
   top: 54px;
   z-index: 10;
-  border: 1px solid rgba(38, 59, 80, 0.75);
+  border: 1px solid rgba(40, 51, 64, 0.75);
   border-radius: var(--radius-sm);
   padding: 6px 9px;
-  background: rgba(7, 16, 26, 0.82);
+  background: rgba(12, 16, 22, 0.82);
   color: var(--muted);
   font-size: 0.72rem;
 }
@@ -948,10 +948,10 @@ dl {
   display: flex;
   align-items: center;
   gap: 8px;
-  border: 1px solid rgba(38, 59, 80, 0.82);
+  border: 1px solid rgba(40, 51, 64, 0.82);
   border-radius: var(--radius-md);
   padding: 7px;
-  background: rgba(7, 16, 26, 0.86);
+  background: rgba(12, 16, 22, 0.86);
 }
 
 .timeline-control span {
@@ -967,10 +967,10 @@ dl {
   display: grid;
   gap: 6px;
   width: 210px;
-  border: 1px solid rgba(38, 59, 80, 0.82);
+  border: 1px solid rgba(40, 51, 64, 0.82);
   border-radius: var(--radius-md);
   padding: 9px;
-  background: rgba(7, 16, 26, 0.86);
+  background: rgba(12, 16, 22, 0.86);
   font-size: 0.72rem;
 }
 
@@ -1029,10 +1029,10 @@ dl {
   grid-template-rows: auto auto minmax(0, 1fr);
   width: min(430px, calc(100% - 40px));
   max-height: calc(100% - 100px);
-  border: 1px solid rgba(38, 59, 80, 0.9);
+  border: 1px solid rgba(40, 51, 64, 0.9);
   border-radius: var(--radius-md);
   background:
-    linear-gradient(180deg, rgba(13, 26, 40, 0.97), rgba(8, 17, 28, 0.96));
+    linear-gradient(180deg, rgba(16, 22, 30, 0.97), rgba(12, 16, 22, 0.96));
   box-shadow: var(--shadow-panel);
   overflow: hidden;
 }
@@ -1130,7 +1130,7 @@ dl {
 
 .events-resize-handle:hover,
 .events-resize-handle:active {
-  background: linear-gradient(90deg, transparent, rgba(76, 155, 255, 0.5), transparent);
+  background: linear-gradient(90deg, transparent, rgba(91, 143, 214, 0.5), transparent);
 }
 
 .panel-title-actions {
@@ -1143,9 +1143,9 @@ dl {
 .events-expand {
   display: inline-grid;
   place-items: center;
-  border: 1px solid rgba(38, 59, 80, 0.85);
+  border: 1px solid rgba(40, 51, 64, 0.85);
   border-radius: var(--radius-sm);
-  background: rgba(7, 20, 33, 0.84);
+  background: rgba(12, 17, 23, 0.84);
   color: var(--muted);
   cursor: pointer;
 }
@@ -1157,7 +1157,7 @@ dl {
 
 .events-collapse:hover,
 .events-expand:hover {
-  border-color: rgba(76, 155, 255, 0.55);
+  border-color: rgba(91, 143, 214, 0.55);
   color: var(--ink);
 }
 
@@ -1192,10 +1192,10 @@ dl {
   display: grid;
   gap: 3px;
   width: min(224px, calc(100% - 40px));
-  border: 1px solid rgba(38, 59, 80, 0.7);
+  border: 1px solid rgba(40, 51, 64, 0.7);
   border-radius: var(--radius-md);
   padding: 8px 10px;
-  background: rgba(7, 16, 26, 0.78);
+  background: rgba(12, 16, 22, 0.78);
   color: var(--muted);
   font-size: 0.68rem;
 }
@@ -1242,7 +1242,7 @@ dl {
 
 .event-card:hover,
 .event-card.selected {
-  border-color: rgba(76, 155, 255, 0.55);
+  border-color: rgba(91, 143, 214, 0.55);
   background: rgba(16, 40, 58, 0.92);
 }
 
@@ -1280,7 +1280,7 @@ dl {
   border: 1px dashed rgba(145, 165, 184, 0.4);
   border-radius: var(--radius-md);
   padding: 12px;
-  background: rgba(7, 20, 33, 0.7);
+  background: rgba(12, 17, 23, 0.7);
 }
 
 .empty-state strong {
@@ -1316,7 +1316,7 @@ dl {
   z-index: 60;
   width: max-content;
   max-width: 260px;
-  border: 1px solid rgba(76, 155, 255, 0.42);
+  border: 1px solid rgba(91, 143, 214, 0.42);
   border-radius: var(--radius-sm);
   padding: 7px 9px;
   background: rgba(5, 12, 20, 0.98);
@@ -1340,7 +1340,7 @@ dl {
   align-items: center;
   border-top: 1px solid var(--line);
   padding: 0 12px;
-  background: #08131f;
+  background: #0b1017;
   color: var(--muted);
   font-size: 0.68rem;
 }
@@ -1388,7 +1388,7 @@ dl {
     width: min(360px, calc(100% - 24px));
     height: auto;
     max-height: calc(100% - 24px);
-    border: 1px solid rgba(38, 59, 80, 0.92);
+    border: 1px solid rgba(40, 51, 64, 0.92);
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-panel);
   }
