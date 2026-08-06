@@ -812,10 +812,15 @@
           "partial": {
             "title": "Partial",
             "type": "boolean"
+          },
+          "total_matched": {
+            "title": "Total Matched",
+            "type": "integer"
           }
         },
         "required": [
-          "partial"
+          "partial",
+          "total_matched"
         ],
         "title": "FeatureCollectionMeta",
         "type": "object"

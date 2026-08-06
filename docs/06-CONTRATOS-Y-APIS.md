@@ -187,16 +187,19 @@ Para listados:
   "meta": {
     "next_cursor": null,
     "generated_at": "...",
-    "partial": false
+    "partial": false,
+    "total_matched": 0
   }
 }
 ```
 
 Las geometrías pesadas pueden servirse en endpoint separado o teselas.
 
-Limitación verificada: `meta.partial` permanece `false` incluso cuando
-`next_cursor` indica truncamiento. Es un defecto abierto de `GEO-FIX-001`, no
-una garantía del contrato actual.
+Desde `GEO-FIX-001`: `meta.partial` es `true` cuando la página no contiene todos
+los eventos que casan los filtros, y `meta.total_matched` trae el conteo real. El
+orden es estable por `(last_observed_at DESC NULLS LAST, id ASC)` y `next_cursor`
+es un cursor keyset opaco (base64) sobre esa clave, no sobre el UUID. Los query
+params desconocidos se rechazan con `400 INVALID_REQUEST` en vez de ignorarse.
 
 ---
 
