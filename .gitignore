@@ -17,3 +17,6 @@ playwright-report/
 
 *.log
 var/
+
+# Consola de diagnóstico local (sustituida por /docs de FastAPI al cerrar GEO-FIX-003)
+apps/web/public/geoops-console.html
