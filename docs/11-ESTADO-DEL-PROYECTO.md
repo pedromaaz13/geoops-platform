@@ -126,15 +126,18 @@ deben mantener su propia lista (ver `AGENTS.md §11`).
 - No hay React Router, Zustand ni deck.gl; `/operations` no es ruta de cliente.
 - No existe `packages/` ni layer registry más allá del actual de la consola.
 
-**Defectos abiertos con ficha:**
+**Defectos y trabajo abierto con ficha:**
 - Paginación/orden veraces de `/v1/events`: `GEO-FIX-001`.
 - Cooldown material y resolución de alertas: `GEO-FIX-002`.
-- Contratos tipados y validación de entrada: `GEO-FIX-003`.
+- Contratos tipados y validación de entrada: `GEO-FIX-003` (cerrado).
 - Reconciliación sobre PostGIS sin coords derivadas: `GEO-FIX-004`.
 - E2E real sin mocks y `make test-contract`: `GEO-FIX-005`.
+- Primera fuente real de incendios tras adaptador: `GEO-FIX-008`.
+- UX de marcadores del mapa (hover/cursor/hit-area): `GEO-UI-005`.
 
 **Fuentes** (`docs/07`): AEMET, DGT, IGN, GDACS, Copernicus y demás previstas, no
-conectadas; sin scheduler ni notificaciones externas.
+conectadas; sin scheduler ni notificaciones externas. Conectar la primera fuente real
+está fichado en `GEO-FIX-008`.
 
 ## Bloqueos
 
