@@ -818,6 +818,11 @@ dl {
 
 .map-canvas {
   z-index: 0;
+  /* maplibre-gl.css marca .maplibregl-map como position:relative y pisa el inset:0,
+     dejando el contenedor a 0px de alto. Fijamos tamaño explícito para que llene
+     el stage y MapLibre calcule bien el canvas. */
+  width: 100%;
+  height: 100%;
 }
 
 .map-workspace.ready .fallback-map-grid {
