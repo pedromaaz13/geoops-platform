@@ -4,8 +4,8 @@
 
 La consola `/operations` implementa mapa MapLibre, lista de eventos, detalle con
 procedencia y latencias separadas, salud de fuentes, creación de activo puntual,
-regla de proximidad, alerta interna y acknowledge. No hay todavía layer registry,
-timeline avanzada, deck.gl ni Kepler.gl.
+regla de proximidad, alerta interna y acknowledge. Existe un layer registry
+inicial; no hay todavía timeline con reproducción, deck.gl ni Kepler.gl.
 
 Tras `GEO-UI-001`, la vista se presenta como pantalla GIS fija: no hay scroll
 global, el mapa ocupa el área central con basemap visible y los controles viven
@@ -26,14 +26,14 @@ map-first:
 - lista de eventos visibles en viewport;
 - ficha flotante con pestañas `Resumen`, `Evidencias`, `Evolución`, `Impactos`
   y `Fuentes`;
-- URL sincronizada para selección, filtros principales, ventana temporal y
-  capas;
+- query string sincronizada mediante `history.replaceState` para selección,
+  filtros principales, ventana temporal y capas; no existe React Router;
 - layout móvil sin scroll global y con mapa visible.
 
 Limitaciones vivas: el buscador no incorpora todavía un índice IGN/poblaciones
-equivalente al visor original, los filtros de sensor/confianza/origen no se
-muestran hasta estabilizar contrato y la suite de pruebas sigue siendo más
-pequeña que la del visor heredado.
+equivalente al visor original, el E2E intercepta la API con mocks y la suite de
+pruebas sigue siendo más pequeña que la del visor heredado. Los filtros de
+origen, sensor y confianza sí están implementados.
 
 Tras `GEO-UI-003`, la consola recibe un pase de calidad visual e interaccion:
 
@@ -41,8 +41,8 @@ Tras `GEO-UI-003`, la consola recibe un pase de calidad visual e interaccion:
   CORS, datos vacios o demo no sembrada;
 - rail izquierdo colapsable/expandible con iconos, badges, estado activo y
   tooltips;
-- tabs superiores para `Operaciones`, `Fuentes`, `Activos`, `Alertas` y
-  `Analisis`;
+- rail principal para `Home`, `Operaciones`, `Fuentes`, `Activos`, `Alertas`,
+  `Capas`, `Analisis` y `Configuracion`, con drawer contextual cerrable;
 - tabs de ficha con semantica `tablist` y persistencia en URL;
 - controles compactos para selects, switches, capas y filtros;
 - empty states accionables cuando no hay datos o los filtros ocultan eventos;
@@ -74,24 +74,29 @@ Lista, mapa, URL y ficha comparten selección.
 
 ## 2. MapLibre
 
-MapLibre es el motor base:
+MapLibre es el motor base implementado para:
 
 - cámara;
-- estilos;
-- vector tiles;
-- PMTiles;
+- estilos de mapa base externos;
 - GeoJSON pequeño/mediano;
-- carreteras;
-- municipios;
-- infraestructura;
 - eventos;
-- polígonos;
-- etiquetas;
+- incertidumbre puntual;
+- activos e impactos;
 - filtros sencillos.
+
+### Previsto, no implementado — 2026-08-06
+
+- vector tiles propios y PMTiles/MVT;
+- carreteras, municipios e infraestructura gobernados por GeoOps;
+- polígonos de evento;
+- clustering para volumen.
 
 ## 3. deck.gl
 
-Se utiliza solo para necesidad analítica:
+### Previsto, no implementado — 2026-08-06
+
+deck.gl no está instalado. Solo se incorporará ante una necesidad analítica
+medida:
 
 | Caso | Capa |
 |---|---|
@@ -108,7 +113,10 @@ No se añade “porque parece moderno”.
 
 ## 4. Kepler.gl
 
-Kepler vive en `/lab`, cargado de forma diferida.
+### Previsto, no implementado — 2026-08-06
+
+Kepler.gl no está instalado y no existe una ruta `/lab`. La dirección de
+producto prevista es cargarlo de forma diferida en un laboratorio separado.
 
 Uso:
 
@@ -208,8 +216,16 @@ M1:
 
 ## 9. Rendimiento
 
+Implementado actualmente:
+
+- consultas de eventos con `bbox` fijo de cobertura España desde frontend;
+- actualización de fuentes GeoJSON con `setData`;
+- build con aviso vivo por el tamaño del chunk de MapLibre.
+
+### Previsto, no implementado — 2026-08-06
+
 - carga diferida;
-- consultas por bbox;
+- consultas por bbox del viewport;
 - simplificación;
 - clustering;
 - PMTiles/MVT para volumen;

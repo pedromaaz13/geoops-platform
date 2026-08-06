@@ -5,19 +5,22 @@
 El contrato `wildfire-public` v1 está documentado en
 `docs/contracts/wildfire-public-feed-v1.md` y probado mediante fixture local. La
 API `/v1` implementada cubre eventos, detalle, observaciones, revisiones,
-fuentes, runs, activos, impactos, reglas y alertas. SSE, OpenAPI generado y
-tipos generados quedan fuera del MVP.
+fuentes, runs, activos, impactos, reglas y alertas. FastAPI expone OpenAPI en
+runtime, pero los endpoints no declaran `response_model`; no existe esquema
+versionado, cliente generado ni tipos TypeScript generados. SSE queda fuera del
+MVP.
 
 ---
 
-Los contratos separan los repositorios, los servicios y el frontend. Todo
-contrato público tiene versión y pruebas.
+Los contratos versionados y las pruebas consumidor-productor son la dirección
+objetivo. Hoy solo el feed `wildfire-public` tiene documento y pruebas de
+invariantes; la API conserva tipos manuales en frontend.
 
 ---
 
 ## 1. Contrato del feed wildfire
 
-GeoOps consumirá inicialmente:
+GeoOps consume actualmente:
 
 ```text
 manifest.json
@@ -55,21 +58,26 @@ GeoOps debe rechazar:
 
 ```json
 {
-  "id": "uuid",
-  "type": "wildfire",
-  "subtype": null,
-  "title": "Incendio cerca de ...",
-  "status": null,
-  "status_source_id": null,
-  "severity": null,
+  "type": "Feature",
   "geometry": {
     "type": "Point",
     "coordinates": [-4.1, 40.2]
   },
-  "precision_m": 375,
-  "last_observed_at": "2026-08-05T00:00:00Z",
-  "updated_at": "2026-08-05T00:10:00Z",
-  "sources": ["wildfire-public-spain"]
+  "properties": {
+    "id": "uuid",
+    "type": "wildfire",
+    "subtype": null,
+    "title": "Incendio cerca de ...",
+    "status": null,
+    "status_source_id": null,
+    "severity": null,
+    "precision_m": 375,
+    "confidence": null,
+    "last_observed_at": "2026-08-05T00:00:00Z",
+    "updated_at": "2026-08-05T00:10:00Z",
+    "sources": ["wildfire-public"],
+    "attributes": {}
+  }
 }
 ```
 
@@ -78,14 +86,13 @@ GeoOps debe rechazar:
 Añade:
 
 ```text
-summary
-attributes
 observations_count
 revisions_count
 impacts_count
-source_health
-links
 ```
+
+`summary`, `attributes` y la procedencia ya forman parte de `properties` en el
+listado. El detalle no incluye actualmente `source_health` ni `links`.
 
 ---
 
@@ -96,8 +103,20 @@ GET /v1/events
 GET /v1/events/{event_id}
 GET /v1/events/{event_id}/observations
 GET /v1/events/{event_id}/revisions
+GET /v1/events/{event_id}/timeline
+GET /v1/operations/summary
 GET /v1/sources
 GET /v1/sources/health
+GET /v1/source-runs
+GET /v1/assets
+GET /v1/assets/{asset_id}
+POST /v1/assets
+DELETE /v1/assets/{asset_id}
+GET /v1/events/{event_id}/impacts
+GET /v1/alert-rules
+POST /v1/alert-rules
+GET /v1/alerts
+POST /v1/alerts/{alert_id}/acknowledge
 GET /health
 GET /ready
 ```
@@ -132,10 +151,12 @@ origins
 sensors
 min_confidence
 status
-severity
+sources
 from
 to
 updated_after
+has_impact
+has_alert
 limit
 cursor
 ```
@@ -168,6 +189,10 @@ Para listados:
 
 Las geometrías pesadas pueden servirse en endpoint separado o teselas.
 
+Limitación verificada: `meta.partial` permanece `false` incluso cuando
+`next_cursor` indica truncamiento. Es un defecto abierto de `GEO-FIX-001`, no
+una garantía del contrato actual.
+
 ---
 
 ## 6. Errores
@@ -175,25 +200,28 @@ Las geometrías pesadas pueden servirse en endpoint separado o teselas.
 ```json
 {
   "error": {
-    "code": "UNSUPPORTED_SCHEMA_VERSION",
-    "message": "Unsupported wildfire schema version",
-    "details": {
-      "received": 2,
-      "supported": [1]
-    },
+    "code": "INVALID_REQUEST",
+    "message": "descripcion del ValueError",
     "request_id": "..."
   }
 }
 ```
 
-Códigos estables, mensajes humanos y `request_id`.
+Este es el único envoltorio estable implementado por el manejador global de
+`ValueError`. Los errores tipados por dominio, detalles por campo y catálogo de
+códigos permanecen previstos.
 
 ---
 
 ## 7. Versionado
 
-- `/v1` para API.
-- `schema_version` para datasets.
+Implementado actualmente:
+
+- prefijo `/v1` para la API;
+- `schema_version=1` para el feed wildfire.
+
+### Previsto, no implementado — 2026-08-06
+
 - cambios compatibles no requieren versión mayor;
 - renombrar/eliminar campos sí;
 - la deprecación se documenta;
@@ -202,6 +230,11 @@ Códigos estables, mensajes humanos y `request_id`.
 ---
 
 ## 8. SSE
+
+### Previsto, no implementado — 2026-08-06
+
+No existe el endpoint `/v1/stream`. El siguiente contrato conserva la intención
+de diseño:
 
 ```http
 GET /v1/stream
@@ -224,18 +257,23 @@ Cada mensaje lleva ID para reanudación.
 
 ## 9. Tipos TypeScript
 
-Los tipos del frontend se generan desde OpenAPI o JSON Schema. No se mantienen a
-mano dos contratos equivalentes.
+Los tipos del frontend se mantienen manualmente en `apps/web/src/types.ts`.
+
+### Previsto, no implementado — 2026-08-06
+
+Generarlos desde un OpenAPI versionado y dejar de mantener dos contratos
+equivalentes a mano.
 
 ---
 
 ## 10. Criterios
 
 ```text
-[ ] OpenAPI generado.
-[ ] Ejemplos válidos.
-[ ] Tests de contrato.
-[ ] Errores versionados.
+[x] OpenAPI runtime de FastAPI.
+[x] Fixture y ejemplos del feed wildfire validados.
+[ ] OpenAPI versionado con `response_model`.
+[ ] Test real frontend-API sin mocks.
+[ ] Errores de dominio versionados.
 [ ] Nulos documentados.
 [ ] Límites y paginación.
 [ ] Geometría y SRID.

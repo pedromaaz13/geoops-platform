@@ -8,6 +8,11 @@ crea la migración inicial PostGIS. Los endpoints `/health` y `/ready` siguen
 siendo la puerta operacional mínima, y `/v1` expone eventos, fuentes, activos,
 impactos, reglas y alertas internas.
 
+Verificado contra `main@c1fcb83` el 2026-08-06. La modularidad actual se limita
+a módulos Python planos (`main.py`, `operations.py`, `models.py` y
+`wildfire_ingest.py`). No existe todavía una separación física por capas de
+dominio, aplicación, infraestructura e interfaces.
+
 ---
 
 Este documento convierte el pipeline conceptual en una estructura implementable.
@@ -16,7 +21,7 @@ Este documento convierte el pipeline conceptual en una estructura implementable.
 
 ## 1. Objetivos
 
-El backend debe:
+Dirección objetivo del backend:
 
 - ingerir fuentes heterogéneas;
 - conservar raw;
@@ -34,33 +39,38 @@ El backend debe:
 
 ## 2. Modular monolith primero
 
-M0 será un monolito modular, no microservicios.
+El repositorio actual es un monolito desplegable, no microservicios:
 
 ```text
 services/
 ├── api/
 │   └── geoops_api/
-│       ├── application/
-│       ├── domain/
-│       ├── infrastructure/
-│       ├── interfaces/
-│       └── main.py
+│       ├── main.py
+│       ├── models.py
+│       ├── operations.py
+│       └── wildfire_ingest.py
 │
 └── ingestion/
     └── geoops_ingestion/
-        ├── adapters/
-        ├── normalizers/
-        ├── pipelines/
-        ├── reconcilers/
         └── cli.py
 ```
 
-API e ingesta pueden compartir paquetes de dominio y persistencia sin copiar
-modelos.
+La CLI importa hoy la implementación y los modelos de `geoops_api`; no existe un
+paquete compartido independiente.
+
+### Previsto, no implementado — 2026-08-06
+
+La separación `application/domain/infrastructure/interfaces` y las carpetas
+`adapters/normalizers/pipelines/reconcilers` son la dirección modular prevista.
 
 ---
 
 ## 3. Capas
+
+### Previsto, no implementado — 2026-08-06
+
+Las siguientes capas describen una frontera objetivo. No existen como paquetes
+ni garantizan hoy independencia respecto a FastAPI o SQLAlchemy.
 
 ### Domain
 
@@ -102,6 +112,11 @@ modelos.
 
 ## 4. Dependencias
 
+### Previsto, no implementado — 2026-08-06
+
+Estas reglas describen la dirección de dependencias deseada; la implementación
+actual comparte modelos SQLAlchemy y servicios entre API y CLI.
+
 ```text
 interfaces → application → domain
 infrastructure → application/domain
@@ -120,7 +135,7 @@ Evitar:
 
 ## 5. Base de datos
 
-Tablas M0:
+Tablas implementadas:
 
 ```text
 sources
@@ -130,21 +145,16 @@ observations
 events
 event_observations
 event_revisions
-```
-
-M2:
-
-```text
-organizations
-users
 assets
-asset_groups
 impacts
 alert_rules
 alerts
-cases
-case_actions
 ```
+
+### Previsto, no implementado — 2026-08-06
+
+`organizations`, `users`, `asset_groups`, `routes`, `cases` y `case_actions` no
+existen en `models.py` ni en la migración `0001_mvp_core`.
 
 Índices:
 
@@ -159,8 +169,7 @@ CREATE INDEX ix_events_type_updated
 ON events (event_type, updated_at DESC);
 
 CREATE UNIQUE INDEX ux_observation_source_record_version
-ON observations (source_id, source_record_id, source_version)
-WHERE source_record_id IS NOT NULL;
+ON observations (source_id, source_record_id, source_version);
 ```
 
 Reglas:
@@ -176,6 +185,10 @@ Reglas:
 ---
 
 ## 6. Transacciones
+
+Esta sección define invariantes objetivo. La ingesta actual usa una sesión por
+ejecución y conserva raw local; no existe todavía outbox ni una infraestructura
+de jobs aislados por fuente.
 
 ### Ingesta
 
@@ -206,40 +219,61 @@ Por observación o lote pequeño:
 
 ## 7. API
 
-FastAPI:
+Endpoints implementados:
 
 ```text
+/health
+/ready
 /v1/events
+/v1/operations/summary
 /v1/events/{id}
 /v1/events/{id}/observations
 /v1/events/{id}/revisions
+/v1/events/{id}/timeline
 /v1/sources
 /v1/sources/health
+/v1/source-runs
 /v1/assets
-/v1/impacts
+/v1/assets/{id}
+/v1/events/{id}/impacts
 /v1/alert-rules
 /v1/alerts
-/v1/stream
+/v1/alerts/{id}/acknowledge
 ```
 
-Principios:
+### Previsto, no implementado — 2026-08-06
 
-- cursor pagination;
+No existen `/v1/stream`, un endpoint genérico `/v1/impacts`, resolución de
+alertas ni rutas de casos.
+
+Comportamiento actual:
+
+- límite máximo de 200 eventos;
+- cursor basado en UUID de evento;
+- `bbox` opcional;
+- filtro `updated_after`;
+- listado y detalle separados;
+- errores `ValueError` con código `INVALID_REQUEST`.
+
+### Previsto, no implementado — 2026-08-06
+
+Principios pendientes:
+
+- cursor compuesto y estable para paginación;
 - bbox obligatorio para consultas cartográficas amplias;
-- límite máximo;
-- ETag o `updated_after`;
+- ETag;
 - geometría simplificada según endpoint;
-- detalle separado de listado;
-- errores con código estable;
+- errores de dominio con códigos estables;
 - OpenAPI como contrato.
 
 ---
 
 ## 8. Tiempo real
 
-M0 usa polling o SSE.
+### Previsto, no implementado — 2026-08-06
 
-SSE es suficiente para:
+La consola usa peticiones HTTP mediante TanStack Query. No existe SSE ni
+WebSocket. SSE se mantiene como opción futura para:
 
 ```text
 event.created
@@ -256,7 +290,11 @@ tiempo real.
 
 ## 9. Caché
 
-- TanStack Query en cliente.
+- TanStack Query está implementado en cliente.
+- No existe caché de servidor, CDN, snapshots ni ETag/Last-Modified.
+
+### Previsto, no implementado — 2026-08-06
+
 - CDN para snapshots.
 - ETag/Last-Modified.
 - No añadir Redis hasta medir una consulta que lo necesite.
@@ -270,14 +308,13 @@ tiempo real.
 Local:
 
 ```text
-Docker Compose:
-postgres-postgis
-api
-ingestion
-web
+Docker Compose → PostgreSQL/PostGIS
+host local     → FastAPI, CLI de ingesta y Vite
 ```
 
-Cloud inicial:
+### Previsto, no implementado — 2026-08-06
+
+No existe despliegue cloud ni infraestructura productiva. Dirección inicial:
 
 ```text
 Cloud Run service  → API
@@ -293,21 +330,26 @@ Separar configuración por entorno. Secretos nunca en repositorio.
 
 ## 11. Seguridad inicial
 
-- CORS restrictivo.
+Implementado actualmente:
+
+- CORS restringido a orígenes locales configurados;
+- no se renderiza HTML de usuario;
+- secretos fuera del repositorio mediante variables de entorno;
+- dependencias bloqueadas en lockfiles.
+
+### Previsto, no implementado — 2026-08-06
+
 - límites de request;
 - validación de GeoJSON;
-- no renderizar HTML de usuario;
-- secretos en gestor;
+- secretos en gestor administrado;
 - logs redactados;
-- dependencia lockeada;
 - CodeQL;
 - Dependabot/Renovate;
 - CSP;
 - auditoría de licencias.
 
-Autenticación y multiempresa entran cuando existan activos privados. El diseño
-de tablas debe prever `organization_id`, pero no se implementa una plataforma
-IAM completa en M0.
+Autenticación, multiempresa y `organization_id` no están implementados, aunque
+ya existan activos puntuales locales en el MVP.
 
 ---
 
@@ -315,14 +357,14 @@ IAM completa en M0.
 
 ```text
 [ ] Dominio separado de frameworks.
-[ ] Migraciones reproducibles.
-[ ] API OpenAPI.
-[ ] Idempotencia.
-[ ] Errores por fuente.
-[ ] Logging estructurado.
+[x] Migraciones reproducibles.
+[x] OpenAPI runtime, sin contrato tipado.
+[x] Idempotencia del fixture wildfire.
+[x] Errores y salud por fuente.
+[x] Logging estructurado mínimo.
 [ ] Métricas.
-[ ] Tests de integración con PostGIS.
-[ ] Docker healthchecks.
-[ ] Build reproducible.
-[ ] Ninguna dependencia futura sin consumidor.
+[x] Tests de integración con PostGIS.
+[x] Docker healthcheck de PostGIS.
+[x] Build reproducible.
+[x] Ninguna dependencia futura sin consumidor actual.
 ```
