@@ -8,16 +8,18 @@
 El contrato `wildfire-public` v1 está documentado en
 `docs/contracts/wildfire-public-feed-v1.md` y probado mediante fixture local. La
 API `/v1` implementada cubre eventos, detalle, observaciones, revisiones,
-fuentes, runs, activos, impactos, reglas y alertas. FastAPI expone OpenAPI en
-runtime, pero los endpoints no declaran `response_model`; no existe esquema
-versionado, cliente generado ni tipos TypeScript generados. SSE queda fuera del
-MVP.
+fuentes, runs, activos, impactos, reglas y alertas. Desde GEO-FIX-003, todos los
+endpoints declaran `response_model` (`services/api/geoops_api/schemas.py`); el
+esquema se versiona en `openapi.json`, `make openapi-check` lo compara en CI, y el
+frontend genera sus tipos con `pnpm gen:api` (`apps/web/src/api-types.ts`). SSE
+queda fuera del MVP.
 
 ---
 
 Los contratos versionados y las pruebas consumidor-productor son la dirección
 objetivo. Hoy solo el feed `wildfire-public` tiene documento y pruebas de
-invariantes; la API conserva tipos manuales en frontend.
+invariantes; el resto de la API ya tiene contrato tipado y tipos generados, y el
+E2E real productor-consumidor sin mocks queda pendiente en `GEO-FIX-005`.
 
 ---
 
@@ -260,12 +262,11 @@ Cada mensaje lleva ID para reanudación.
 
 ## 9. Tipos TypeScript
 
-Los tipos del frontend se mantienen manualmente en `apps/web/src/types.ts`.
-
-### Previsto, no implementado — 2026-08-06
-
-Generarlos desde un OpenAPI versionado y dejar de mantener dos contratos
-equivalentes a mano.
+Desde GEO-FIX-003 los tipos del frontend se **generan** desde `openapi.json` con
+`pnpm gen:api` a `apps/web/src/api-types.ts`; `apps/web/src/types.ts` solo
+re-exporta esos DTOs y define el estado propio de la UI (`EventFilters`). El drift
+back↔front se detecta en `make openapi-check`, que regenera esquema y tipos y falla
+si difieren de lo commiteado.
 
 ---
 
@@ -274,8 +275,8 @@ equivalentes a mano.
 ```text
 [x] OpenAPI runtime de FastAPI.
 [x] Fixture y ejemplos del feed wildfire validados.
-[ ] OpenAPI versionado con `response_model`.
-[ ] Test real frontend-API sin mocks.
+[x] OpenAPI versionado con `response_model` (`openapi.json`, `make openapi-check`).
+[ ] Test real frontend-API sin mocks (`GEO-FIX-005`).
 [ ] Errores de dominio versionados.
 [ ] Nulos documentados.
 [ ] Límites y paginación.
