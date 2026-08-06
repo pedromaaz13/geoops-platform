@@ -10,7 +10,7 @@ interface OperationsMapProps {
   impacts: ImpactDto[];
   selectedEventId: string | null;
   visibleLayers: Record<LayerId, boolean>;
-  basemap: 'dark' | 'light' | 'satellite';
+  basemap: 'voyager' | 'dark' | 'light' | 'satellite';
   focusCoordinates: [number, number] | null;
   onSelectEvent: (eventId: string) => void;
   onBoundsChange: (bounds: [number, number, number, number] | null) => void;
@@ -103,6 +103,7 @@ export function OperationsMap({
   useEffect(() => {
     if (import.meta.env.MODE === 'test' || !containerRef.current) return;
     let disposed = false;
+    let resizeObserver: ResizeObserver | undefined;
 
     async function createMap() {
       try {
@@ -118,15 +119,33 @@ export function OperationsMap({
           style: {
             version: 8,
             sources: {
+              voyager: {
+                type: 'raster',
+                tiles: [
+                  'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
+                  'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
+                  'https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
+                ],
+                tileSize: 256,
+                attribution: 'OpenStreetMap contributors, CARTO',
+              },
               dark: {
                 type: 'raster',
-                tiles: ['https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'],
+                tiles: [
+                  'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+                  'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+                  'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+                ],
                 tileSize: 256,
                 attribution: 'OpenStreetMap contributors, CARTO',
               },
               light: {
                 type: 'raster',
-                tiles: ['https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'],
+                tiles: [
+                  'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
+                  'https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
+                  'https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
+                ],
                 tileSize: 256,
                 attribution: 'OpenStreetMap contributors, CARTO',
               },
@@ -142,7 +161,8 @@ export function OperationsMap({
             },
             layers: [
               { id: 'background', type: 'background', paint: { 'background-color': '#07101A' } },
-              { id: 'basemap-dark', type: 'raster', source: 'dark', paint: { 'raster-opacity': 0.88 } },
+              { id: 'basemap-voyager', type: 'raster', source: 'voyager', paint: { 'raster-opacity': 1 } },
+              { id: 'basemap-dark', type: 'raster', source: 'dark', layout: { visibility: 'none' }, paint: { 'raster-opacity': 1, 'raster-saturation': -0.2 } },
               { id: 'basemap-light', type: 'raster', source: 'light', layout: { visibility: 'none' }, paint: { 'raster-opacity': 0.9 } },
               { id: 'basemap-satellite', type: 'raster', source: 'satellite', layout: { visibility: 'none' }, paint: { 'raster-opacity': 0.82 } },
               {
@@ -225,13 +245,18 @@ export function OperationsMap({
         });
 
         mapRef.current = map;
+        // MapLibre fija el tamaño del canvas al crear el mapa; si el contenedor aún
+        // no tenía su alto final, el mapa queda recortado. Observamos el contenedor y
+        // resincronizamos con map.resize() en cada cambio de tamaño.
+        resizeObserver = new ResizeObserver(() => map.resize());
+        resizeObserver.observe(containerRef.current);
         map.addControl(new maplibregl.NavigationControl({ visualizePitch: false }), 'top-right');
         map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
         map.on('load', () => {
           setSourceData(map, 'events', eventData);
           setSourceData(map, 'assets', assetData);
           setSourceData(map, 'impacts', impactData);
-          for (const id of ['dark', 'light', 'satellite'] as const) {
+          for (const id of ['voyager', 'dark', 'light', 'satellite'] as const) {
             map.setLayoutProperty(`basemap-${id}`, 'visibility', id === basemap ? 'visible' : 'none');
           }
           for (const definition of layerRegistry) {
@@ -264,6 +289,7 @@ export function OperationsMap({
 
     return () => {
       disposed = true;
+      resizeObserver?.disconnect();
       mapRef.current?.remove();
       mapRef.current = null;
     };

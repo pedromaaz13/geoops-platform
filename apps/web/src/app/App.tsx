@@ -40,7 +40,7 @@ import type {
 
 type ActivePanel = 'home' | 'overview' | 'sources' | 'assets' | 'alerts' | 'layers' | 'analysis' | 'settings';
 type DetailTab = 'summary' | 'evidence' | 'evolution' | 'impacts' | 'sources';
-type Basemap = 'dark' | 'light' | 'satellite';
+type Basemap = 'voyager' | 'dark' | 'light' | 'satellite';
 type ToolPanel = 'search' | 'filters' | 'layers' | null;
 
 const emptyEvents: EventFeature[] = [];
@@ -55,7 +55,7 @@ const defaultFilters: EventFilters = {
   origin: '',
   sensor: '',
   minConfidence: '',
-  timeWindow: '24h',
+  timeWindow: '7d',
   hasImpact: false,
   hasAlert: false,
 };
@@ -203,7 +203,7 @@ export function App() {
   const [selectedEventId, setSelectedEventId] = useState<string | null>(initialSelectedEvent);
   const [filters, setFilters] = useState<EventFilters>(initialFilters);
   const [visibleLayers, setVisibleLayers] = useState<Record<LayerId, boolean>>(initialLayers);
-  const [basemap, setBasemap] = useState<Basemap>('satellite');
+  const [basemap, setBasemap] = useState<Basemap>('voyager');
   const [activePanel, setActivePanel] = useState<ActivePanel>(initialActivePanel);
   const [detailTab, setDetailTab] = useState<DetailTab>(initialDetailTab);
   const [toolPanel, setToolPanel] = useState<ToolPanel>(null);
@@ -886,8 +886,8 @@ function LayerSection({
         ))}
       </div>
       <div className="segmented">
-        {(['dark', 'light', 'satellite'] as const).map((item) => {
-          const labels: Record<Basemap, string> = { dark: 'Oscuro', light: 'Claro', satellite: 'Satelite' };
+        {(['voyager', 'dark', 'light', 'satellite'] as const).map((item) => {
+          const labels: Record<Basemap, string> = { voyager: 'Mapa', dark: 'Oscuro', light: 'Claro', satellite: 'Satelite' };
           return (
           <button
             aria-pressed={basemap === item}
