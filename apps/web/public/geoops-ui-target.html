@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>GeoOps · objetivo de interfaz</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet"/>
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<style>
+:root{
+  --bg:#080C11; --panel:#0E141B; --panel2:#141C25; --line:#1E2A36; --line2:#2A3triangle;
+  --line2:#2A3947; --text:#D3DEE8; --muted:#6E8195; --dim:#465768;
+  --ember:#FF5C39; --cyan:#2AD9C8; --amber:#F5B23D; --red:#E5484D; --blue:#4C9AFF;
+  --mono:'IBM Plex Mono',ui-monospace,monospace; --sans:'IBM Plex Sans',system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px;-webkit-font-smoothing:antialiased;overflow:hidden}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+.app{display:grid;grid-template-rows:44px 1fr;height:100vh}
+/* ---- top ---- */
+.top{display:flex;align-items:center;gap:20px;padding:0 14px;background:var(--panel);border-bottom:1px solid var(--line)}
+.logo{font-family:var(--mono);font-weight:600;letter-spacing:.18em;font-size:11px;text-transform:uppercase;padding-right:18px;border-right:1px solid var(--line)}
+.logo b{color:var(--ember);font-weight:600}
+.tw{display:flex;gap:1px;background:var(--line);border-radius:3px;overflow:hidden}
+.tw button{padding:4px 11px;font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;background:var(--panel2);color:var(--muted)}
+.tw button[aria-pressed=true]{background:var(--line2);color:var(--text)}
+.livedot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--cyan);margin-right:6px;animation:pulse 2.4s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+.top .meta{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-left:auto;display:flex;gap:16px;align-items:center}
+.chat{display:flex;align-items:center;gap:7px;border:1px solid var(--line2);border-radius:16px;padding:4px 13px;font-size:12px}
+.chat:hover{border-color:var(--blue);color:#fff}
+.chat i{width:6px;height:6px;border-radius:50%;background:var(--blue);display:block}
+
+/* ---- shell ---- */
+.shell{display:grid;grid-template-columns:44px 340px 1fr 296px;min-height:0}
+.icons{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;padding-top:10px;gap:4px}
+.icons button{width:32px;height:32px;border-radius:5px;color:var(--dim);display:grid;place-items:center}
+.icons button[aria-pressed=true]{background:var(--panel2);color:var(--ember)}
+.icons button:hover{color:var(--text)}
+.icons svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.6}
+
+.col{background:var(--panel);display:flex;flex-direction:column;min-height:0}
+.col.l{border-right:1px solid var(--line)} .col.r{border-left:1px solid var(--line)}
+.ch{display:flex;align-items:center;justify-content:space-between;padding:11px 14px 9px;border-bottom:1px solid var(--line)}
+.ch h2{margin:0;font-size:13px;font-weight:600}
+.ch .n{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+.scroll{overflow-y:auto;flex:1;min-height:0}
+.scroll::-webkit-scrollbar{width:7px}.scroll::-webkit-scrollbar-thumb{background:var(--line2);border-radius:4px}
+
+/* ---- event list ---- */
+.ev{width:100%;text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);border-left:2px solid transparent;display:block}
+.ev:hover{background:var(--panel2)}
+.ev[aria-current=true]{background:var(--panel2);border-left-color:var(--ember)}
+.ev-t{display:flex;align-items:center;gap:8px;margin-bottom:3px}
+.ev-t strong{font-size:12.5px;font-weight:600}
+.sev{display:flex;gap:2px}
+.sev i{width:11px;height:5px;border-radius:1px;background:var(--line2);display:block;transform:skewX(-18deg)}
+.sev i.on1{background:#F5D93D}.sev i.on2{background:var(--amber)}.sev i.on3{background:var(--ember)}.sev i.on4{background:var(--red)}
+.ev-s{color:var(--muted);font-size:11.5px;margin-bottom:6px}
+.ev-m{display:flex;gap:14px;font-family:var(--mono);font-size:10.5px;color:var(--text)}
+.ev-m span{display:flex;align-items:center;gap:4px}.ev-m em{color:var(--dim);font-style:normal}
+.ev-u{font-family:var(--mono);font-size:9.5px;color:var(--dim);margin-top:5px}
+.new{font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;background:var(--ember);color:#0B0703;padding:1px 5px;border-radius:2px}
+
+/* ---- map ---- */
+.mapwrap{position:relative;min-width:0}
+#map{position:absolute;inset:0}
+.hud{position:absolute;left:14px;top:12px;display:flex;gap:8px;z-index:5}
+.pill{background:rgba(14,20,27,.92);border:1px solid var(--line2);border-radius:4px;padding:5px 10px;font-family:var(--mono);font-size:10.5px;color:var(--muted);backdrop-filter:blur(6px)}
+.pill b{color:var(--text);font-weight:500}
+
+/* time scrubber */
+.time{position:absolute;left:14px;right:14px;bottom:14px;z-index:5;background:rgba(14,20,27,.94);border:1px solid var(--line2);border-radius:5px;padding:9px 13px;backdrop-filter:blur(8px)}
+.time-r{display:flex;align-items:center;gap:13px}
+.play{width:28px;height:28px;border-radius:50%;background:var(--ember);color:#120602;display:grid;place-items:center;flex:none}
+.play svg{width:11px;height:11px;fill:currentColor}
+.track{position:relative;flex:1;height:34px}
+.spark{position:absolute;inset:0 0 12px;display:flex;align-items:flex-end;gap:1px}
+.spark b{flex:1;background:var(--line2);border-radius:1px 1px 0 0;transition:background .2s}
+.spark b.past{background:#33505f}.spark b.now{background:var(--ember)}
+.rng{position:absolute;left:0;right:0;bottom:6px;width:100%;-webkit-appearance:none;background:none}
+.rng::-webkit-slider-runnable-track{height:1px;background:var(--line2)}
+.rng::-webkit-slider-thumb{-webkit-appearance:none;width:3px;height:22px;background:var(--ember);margin-top:-11px;border-radius:1px;cursor:ew-resize}
+.time-l{font-family:var(--mono);font-size:10.5px;color:var(--muted);min-width:118px;text-align:right}
+.time-l b{color:var(--text);font-weight:500}
+
+/* ---- layers ---- */
+.grp{border-bottom:1px solid var(--line)}
+.grp>h3{margin:0;padding:9px 14px 7px;font-family:var(--mono);font-size:9.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--muted)}
+.lyr{display:flex;align-items:center;gap:9px;padding:6px 14px;width:100%;text-align:left}
+.lyr:hover{background:var(--panel2)}
+.box{width:13px;height:13px;border:1px solid var(--dim);border-radius:2px;flex:none;display:grid;place-items:center}
+.box.on{background:var(--ember);border-color:var(--ember)}
+.box.on::after{content:"";width:6px;height:3px;border-left:1.6px solid #0B0703;border-bottom:1.6px solid #0B0703;transform:rotate(-45deg) translate(0,-1px)}
+.box.rad{border-radius:50%}.box.rad.on{background:transparent;border-color:var(--ember)}
+.box.rad.on::after{content:"";width:6px;height:6px;border:0;border-radius:50%;background:var(--ember);transform:none}
+.lyr span{font-size:12px;flex:1}
+.lyr small{font-family:var(--mono);font-size:9.5px;color:var(--dim)}
+
+/* bivariate legend */
+.leg{padding:12px 14px}
+.leg h4{margin:0 0 9px;font-family:var(--mono);font-size:9.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--muted)}
+.matrix{display:grid;grid-template-columns:12px repeat(3,1fr);grid-template-rows:repeat(3,26px) 14px;gap:2px;font-family:var(--mono);font-size:8.5px;color:var(--dim)}
+.matrix .ax{writing-mode:vertical-rl;transform:rotate(180deg);text-align:center;grid-row:1/4;align-self:center}
+.matrix .sw{border-radius:2px;cursor:pointer;position:relative}
+.matrix .sw:hover{outline:1px solid var(--text);outline-offset:1px}
+.matrix .foot{grid-column:2/5;text-align:center;padding-top:2px}
+.leg p{margin:9px 0 0;font-size:11px;color:var(--muted);line-height:1.5}
+
+/* detail card */
+.card{position:absolute;left:14px;top:52px;width:290px;z-index:6;background:rgba(14,20,27,.96);border:1px solid var(--line2);border-radius:5px;backdrop-filter:blur(10px);display:none}
+.card.show{display:block}
+.card-h{padding:11px 13px 9px;border-bottom:1px solid var(--line)}
+.card-h .r{display:flex;align-items:center;gap:8px}
+.card-h strong{font-size:13px}
+.card-h button{margin-left:auto;color:var(--dim);font-size:15px;line-height:1}
+.card-h p{margin:3px 0 0;font-size:11.5px;color:var(--muted)}
+.card-b{padding:10px 13px}
+.metric{display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px solid rgba(30,42,54,.6)}
+.metric:last-child{border:0}
+.metric span{font-size:11.5px;color:var(--muted)}
+.metric b{font-family:var(--mono);font-size:12.5px;font-weight:500}
+.metric b em{font-style:normal;color:var(--dim);font-size:10px;margin-left:3px}
+.prov{padding:8px 13px;border-top:1px solid var(--line);font-family:var(--mono);font-size:9.5px;color:var(--dim);display:flex;justify-content:space-between}
+.maplibregl-ctrl-attrib{font-size:9px!important;background:rgba(8,12,17,.7)!important}
+.maplibregl-ctrl-attrib a{color:var(--dim)!important}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <div class="logo">Geo<b>Ops</b></div>
+    <div class="tw" role="group">
+      <button aria-pressed="false">6 h</button><button aria-pressed="false">24 h</button>
+      <button aria-pressed="true">72 h</button><button aria-pressed="false">7 d</button>
+    </div>
+    <div class="meta">
+      <span><span class="livedot"></span>ingesta hace <b>3 min</b></span>
+      <span>fuentes <b>4/5</b></span>
+      <span>activos vigilados <b>218</b></span>
+      <button class="chat"><i></i>Preguntar a los datos</button>
+    </div>
+  </div>
+
+  <div class="shell">
+    <nav class="icons">
+      <button aria-pressed="true" title="Eventos"><svg viewBox="0 0 24 24"><path d="M12 3c1 4 5 5 5 9a5 5 0 1 1-10 0c0-2 1-3 2-4 0 1 1 2 2 2 0-3 1-5 1-7z"/></svg></button>
+      <button title="Activos"><svg viewBox="0 0 24 24"><path d="M4 20V9l8-5 8 5v11"/><path d="M9 20v-6h6v6"/></svg></button>
+      <button title="Alertas"><svg viewBox="0 0 24 24"><path d="M18 15v-5a6 6 0 1 0-12 0v5l-2 3h16z"/><path d="M10 21h4"/></svg></button>
+      <button title="Capas"><svg viewBox="0 0 24 24"><path d="M12 3 3 8l9 5 9-5z"/><path d="M3 14l9 5 9-5"/></svg></button>
+      <button title="Fuentes"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg></button>
+    </nav>
+
+    <aside class="col l">
+      <div class="ch"><h2>Eventos en curso</h2><span class="n" id="evcount">—</span></div>
+      <div class="scroll" id="evlist"></div>
+    </aside>
+
+    <div class="mapwrap">
+      <div id="map"></div>
+      <div class="hud">
+        <div class="pill">malla <b>H3 · res 7</b></div>
+        <div class="pill">población expuesta <b id="hudpop">—</b></div>
+        <div class="pill" id="hudpartial">mostrando <b>6 de 6</b></div>
+      </div>
+
+      <div class="card" id="card">
+        <div class="card-h">
+          <div class="r"><strong id="c-title">—</strong><span class="sev" id="c-sev"></span>
+            <button onclick="document.getElementById('card').classList.remove('show')">×</button></div>
+          <p id="c-sub">—</p>
+        </div>
+        <div class="card-b" id="c-metrics"></div>
+        <div class="prov"><span id="c-src">—</span><span id="c-upd">—</span></div>
+      </div>
+
+      <div class="time">
+        <div class="time-r">
+          <button class="play" id="play"><svg viewBox="0 0 12 12" id="playicon"><path d="M2 1l9 5-9 5z"/></svg></button>
+          <div class="track">
+            <div class="spark" id="spark"></div>
+            <input class="rng" id="rng" type="range" min="0" max="71" value="71" aria-label="Hora"/>
+          </div>
+          <div class="time-l"><b id="tlabel">ahora</b><br><span id="tsub">últimas 72 h</span></div>
+        </div>
+      </div>
+    </div>
+
+    <aside class="col r">
+      <div class="ch"><h2>Capas</h2><span class="n">4 activas</span></div>
+      <div class="scroll">
+        <div class="grp"><h3>Riesgo</h3>
+          <button class="lyr" data-t="ev"><span class="box on"></span><span>Eventos</span><small>6</small></button>
+          <button class="lyr" data-t="exp"><span class="box on"></span><span>Áreas de exposición</span><small>polígono</small></button>
+          <button class="lyr" data-t="warn"><span class="box on"></span><span>Avisos AEMET</span><small>CAP</small></button>
+          <button class="lyr" data-t="assets"><span class="box"></span><span>Activos del cliente</span><small>218</small></button>
+        </div>
+        <div class="grp"><h3>Analítica · bivariante</h3>
+          <button class="lyr" data-r="pop"><span class="box rad on"></span><span>Población × exposición</span></button>
+          <button class="lyr" data-r="build"><span class="box rad"></span><span>Edificación × exposición</span></button>
+          <button class="lyr" data-r="veg"><span class="box rad"></span><span>Combustible × sequía</span></button>
+        </div>
+        <div class="grp"><h3>Base</h3>
+          <button class="lyr" data-b="dark"><span class="box rad on"></span><span>Oscuro</span></button>
+          <button class="lyr" data-b="voyager"><span class="box rad"></span><span>Mapa</span></button>
+        </div>
+        <div class="leg">
+          <h4>Leyenda</h4>
+          <div class="matrix" id="matrix"></div>
+          <p>Cada celda H3 combina densidad de población con exposición acumulada a eventos activos. Las celdas vacías no tienen población registrada.</p>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+/* ---------- datos sintéticos ---------- */
+const CITIES=[[-3.70,40.42,3300],[2.17,41.39,1660],[-0.38,39.47,800],[-5.98,37.39,690],[-0.88,41.65,675],
+[-4.42,36.72,580],[-2.93,43.26,345],[-5.66,43.54,270],[-8.41,43.37,245],[-4.72,41.65,300],
+[-6.29,36.53,115],[-1.13,37.99,460],[-3.60,37.18,230],[-8.55,42.88,95],[-1.65,42.81,205],[-6.97,38.88,150]];
+const EVENTS=[
+ {id:'e1',t:'Incendio Cortegana',sub:'Huelva · INFOCA · activo',sev:4,lon:-6.821,lat:37.909,r:14,pop:64200,area:640,h:8,src:'INFOCA + VIIRS',new:true},
+ {id:'e2',t:'Incendio Eslida',sub:'Castellón · GVA · nivel 1',sev:3,lon:-0.283,lat:39.885,r:11,pop:118400,area:410,h:22,src:'GVA + VIIRS'},
+ {id:'e3',t:'Aviso naranja · altas temperaturas',sub:'Valle del Guadalquivir · AEMET',sev:3,lon:-5.30,lat:37.60,r:78,pop:2140000,area:9800,h:2,src:'AEMET CAP',poly:true},
+ {id:'e4',t:'Incendio A Peroxa',sub:'Ourense · Xunta · activo',sev:3,lon:-7.864,lat:42.336,r:9,pop:31700,area:520,h:31,src:'Xunta + MODIS'},
+ {id:'e5',t:'Foco satelital Monfragüe',sub:'Cáceres · sin confirmar',sev:1,lon:-6.052,lat:39.826,r:5,pop:2900,area:44,h:44,src:'VIIRS NOAA-20'},
+ {id:'e6',t:'Aviso amarillo · tormentas',sub:'Pirineo aragonés · AEMET',sev:2,lon:-0.42,lat:42.60,r:52,pop:186000,area:4300,h:14,src:'AEMET CAP',poly:true},
+];
+const nf=n=>n.toLocaleString('es-ES');
+const sevBars=n=>Array.from({length:5},(_,i)=>`<i class="${i<n?'on'+Math.min(n,4):''}"></i>`).join('');
+
+/* ---------- malla hexagonal ---------- */
+const R=0.115, BB=[-9.4,36.0,3.4,43.9];
+function hexAt(cx,cy){const p=[];for(let i=0;i<6;i++){const a=Math.PI/180*(60*i-30);p.push([cx+R*0.94*Math.cos(a),cy+R*0.94*Math.sin(a)*0.78]);}p.push(p[0]);return p;}
+function popAt(lon,lat){let v=0;for(const[cl,ca,cp]of CITIES){const d=Math.hypot((lon-cl)*0.78,lat-ca);v+=cp*Math.exp(-(d*d)/0.55);}return v;}
+function inIberia(lon,lat){
+  if(lon<-9.3||lon>3.3||lat<36.0||lat>43.8)return false;
+  if(lat>43.3&&lon>-1.9&&lon<3.2)return false;            // Golfo de Vizcaya / Francia
+  if(lon>1.6&&lat<40.4)return false;                      // Mediterráneo
+  if(lon<-7.6&&lat<39.4&&lat>37.0)return false;           // Atlántico sur
+  if(lon>-6.4&&lat<36.4)return false;
+  if(lon<-8.9&&lat>42.2)return false;
+  if(lat>42.9&&lon<-8.0)return false;
+  if(lon>-1.0&&lat>42.9)return false;
+  return true;
+}
+let HEX=[];
+function buildHex(){
+  const f=[];const dx=R*1.62,dy=R*1.30;
+  for(let j=0,y=BB[1];y<BB[3];y+=dy,j++)for(let x=BB[0]+(j%2?dx/2:0);x<BB[2];x+=dx){
+    if(!inIberia(x,y))continue;
+    const p=popAt(x,y); if(p<8)continue;
+    f.push({type:'Feature',geometry:{type:'Polygon',coordinates:[hexAt(x,y)]},
+      properties:{lon:x,lat:y,pop:p,px:p<60?0:p<260?1:2}});
+  }
+  HEX=f;
+}
+function expoAt(lon,lat,hour){
+  let e=0;for(const ev of EVENTS){if(ev.h>hour)continue;
+    const age=Math.min(1,(hour-ev.h)/10+0.25);
+    const d=Math.hypot((lon-ev.lon)*0.78,lat-ev.lat)*111;
+    if(d<ev.r*1.9)e+=ev.sev*age*(1-d/(ev.r*1.9));}
+  return e;
+}
+const BIV=(px,ex)=>{const base=[18,26,34],cy=[42,217,200],em=[255,92,57];
+  const a=(px+1)/3,b=(ex+1)/3;
+  return `rgb(${Math.round(base[0]+cy[0]*a*0.55+em[0]*b*0.7)},${Math.round(base[1]+cy[1]*a*0.5+em[1]*b*0.35)},${Math.round(base[2]+cy[2]*a*0.5+em[2]*b*0.2)})`;};
+
+/* ---------- mapa ---------- */
+let map,hour=71,playing=false,timer,sel=null;
+const basemaps={dark:'dark_nolabels',voyager:'rastertiles/voyager_nolabels'};
+map=new maplibregl.Map({container:'map',attributionControl:{compact:true},minZoom:4,
+  style:{version:8,sources:{b:{type:'raster',tiles:['a','b','c'].map(s=>`https://${s}.basemaps.cartocdn.com/${basemaps.dark}/{z}/{x}/{y}@2x.png`),tileSize:256,attribution:'© OpenStreetMap · © CARTO'}},
+  layers:[{id:'bg',type:'background',paint:{'background-color':'#080C11'}},
+          {id:'b',type:'raster',source:'b',paint:{'raster-opacity':0.4,'raster-saturation':-0.5,'raster-contrast':0.15}}]},
+  center:[-3.6,40.0],zoom:5.55});
+map.addControl(new maplibregl.NavigationControl({showCompass:false}),'bottom-right');
+
+map.on('load',()=>{
+  buildHex();
+  map.addSource('hex',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
+  map.addLayer({id:'hex',type:'fill',source:'hex',paint:{'fill-color':['get','c'],'fill-opacity':['interpolate',['linear'],['zoom'],4,0.55,9,0.35]}});
+  map.addLayer({id:'hexline',type:'line',source:'hex',filter:['>',['get','ex'],1.2],
+    paint:{'line-color':'#FF5C39','line-width':0.5,'line-opacity':0.5}});
+
+  map.addSource('expo',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
+  map.addLayer({id:'expo-f',type:'fill',source:'expo',paint:{'fill-color':['get','col'],'fill-opacity':0.10}});
+  map.addLayer({id:'expo-l',type:'line',source:'expo',paint:{'line-color':['get','col'],'line-width':1.2,'line-dasharray':[4,3],'line-opacity':0.85}});
+
+  map.addSource('ev',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
+  map.addLayer({id:'ev-glow',type:'circle',source:'ev',paint:{'circle-radius':['*',['get','sev'],7],'circle-color':['get','col'],'circle-opacity':0.13,'circle-blur':0.7}});
+  map.addLayer({id:'ev-pt',type:'circle',source:'ev',paint:{'circle-radius':['+',3,['*',['get','sev'],1.5]],'circle-color':['get','col'],'circle-stroke-width':1.4,'circle-stroke-color':'#080C11'}});
+  map.on('click','ev-pt',e=>select(e.features[0].properties.id));
+  map.on('mouseenter','ev-pt',()=>map.getCanvas().style.cursor='pointer');
+  map.on('mouseleave','ev-pt',()=>map.getCanvas().style.cursor='');
+  render();
+});
+
+function circle(lon,lat,km,n=48){const p=[];for(let i=0;i<=n;i++){const a=2*Math.PI*i/n;
+  p.push([lon+km/111*Math.cos(a)/0.78,lat+km/111*Math.sin(a)]);}return [p];}
+const COL=s=>['#8FA3B8','#F5D93D','#F5B23D','#FF5C39','#E5484D'][s];
+
+function render(){
+  const live=EVENTS.filter(e=>e.h<=hour);
+  // hexes
+  let totalPop=0;
+  const hf=HEX.map(f=>{const ex=expoAt(f.properties.lon,f.properties.lat,hour);
+    const ec=ex<0.35?0:ex<1.3?1:2; if(ex>0.35)totalPop+=f.properties.pop*120;
+    return {...f,properties:{...f.properties,ex,c:BIV(f.properties.px,ec)}};});
+  map.getSource('hex').setData({type:'FeatureCollection',features:hf});
+  // exposición
+  map.getSource('expo').setData({type:'FeatureCollection',features:live.map(e=>({type:'Feature',
+    geometry:{type:'Polygon',coordinates:circle(e.lon,e.lat,e.r*(e.poly?1:1.9))},properties:{col:COL(e.sev)}}))});
+  // eventos
+  map.getSource('ev').setData({type:'FeatureCollection',features:live.map(e=>({type:'Feature',
+    geometry:{type:'Point',coordinates:[e.lon,e.lat]},properties:{id:e.id,sev:e.sev,col:COL(e.sev)}}))});
+
+  $('#evcount').textContent=live.length+' activos';
+  $('#hudpop').textContent=nf(Math.round(totalPop/1000)*1000);
+  $('#hudpartial').innerHTML=`mostrando <b>${live.length} de ${live.length}</b>`;
+  $('#evlist').innerHTML=live.slice().sort((a,b)=>b.sev-a.sev||b.pop-a.pop).map(e=>`
+    <button class="ev" data-id="${e.id}" aria-current="${sel===e.id}">
+      <div class="ev-t"><strong>${e.t}</strong><span class="sev">${sevBars(e.sev)}</span>
+        ${e.new&&hour-e.h<4?'<span class="new">NUEVO</span>':''}</div>
+      <div class="ev-s">${e.sub}</div>
+      <div class="ev-m"><span><em>pobl.</em>${nf(e.pop)}</span><span><em>área</em>${nf(e.area)} km²</span>
+        <span><em>activos</em>${e.sev>2?Math.round(e.sev*3.4):1}</span></div>
+      <div class="ev-u">actualizado hace ${Math.max(1,hour-e.h)} h · ${e.src}</div>
+    </button>`).join('');
+  document.querySelectorAll('.ev').forEach(b=>b.onclick=()=>select(b.dataset.id));
+  const lab=hour>=71?'ahora':`T−${71-hour} h`;
+  $('#tlabel').textContent=lab; $('#tsub').textContent=`${live.length} eventos activos`;
+  document.querySelectorAll('#spark b').forEach((b,i)=>{b.className=i<hour?'past':i===hour?'now':'';});
+}
+
+function select(id){sel=id;const e=EVENTS.find(x=>x.id===id);if(!e)return;
+  $('#c-title').textContent=e.t; $('#c-sub').textContent=e.sub; $('#c-sev').innerHTML=sevBars(e.sev);
+  $('#c-metrics').innerHTML=[['Población expuesta',nf(e.pop),'personas'],['Superficie afectada',nf(e.area),'km²'],
+    ['Activos del cliente en radio',e.sev>2?Math.round(e.sev*3.4):1,''],['Radio de exposición',e.r,'km'],
+    ['Confianza',e.poly?'1.00':(0.55+e.sev*0.1).toFixed(2),'']]
+    .map(([k,v,u])=>`<div class="metric"><span>${k}</span><b>${v}<em>${u}</em></b></div>`).join('');
+  $('#c-src').textContent=e.src; $('#c-upd').textContent=`hace ${Math.max(1,hour-e.h)} h`;
+  $('#card').classList.add('show');
+  map.flyTo({center:[e.lon,e.lat],zoom:8,duration:900});
+  render();
+}
+
+/* scrubber */
+$('#spark').innerHTML=Array.from({length:72},()=>'<b></b>').join('');
+$('#rng').oninput=ev=>{hour=+ev.target.value;render();};
+$('#play').onclick=()=>{playing=!playing;
+  $('#playicon').innerHTML=playing?'<path d="M2 1h3v10H2zM7 1h3v10H7z"/>':'<path d="M2 1l9 5-9 5z"/>';
+  if(playing){hour=0;$('#rng').value=0;timer=setInterval(()=>{hour++;if(hour>71){hour=71;$('#play').click();}
+    $('#rng').value=hour;render();},110);}else clearInterval(timer);};
+
+/* leyenda bivariante */
+$('#matrix').innerHTML=`<span class="ax">exposición →</span>`+
+  [2,1,0].map(ex=>[0,1,2].map(px=>`<span class="sw" style="background:${BIV(px,ex)}" title="pobl.${px+1} · expo.${ex+1}"></span>`).join('')).join('')+
+  `<span class="foot">población →</span>`;
+
+/* toggles */
+document.querySelectorAll('.lyr').forEach(b=>b.onclick=()=>{
+  const box=b.querySelector('.box');
+  if(b.dataset.t){box.classList.toggle('on');
+    const on=box.classList.contains('on');
+    const ids={ev:['ev-pt','ev-glow'],exp:['expo-f','expo-l'],warn:[],assets:[]}[b.dataset.t]||[];
+    ids.forEach(i=>map.getLayer(i)&&map.setLayoutProperty(i,'visibility',on?'visible':'none'));
+  }else{
+    const key=b.dataset.r?'r':'b';
+    document.querySelectorAll(`.lyr[data-${key}] .box`).forEach(x=>x.classList.remove('on'));
+    box.classList.add('on');
+    if(key==='b'){const t=['a','b','c'].map(s=>`https://${s}.basemaps.cartocdn.com/${basemaps[b.dataset.b]}/{z}/{x}/{y}@2x.png`);
+      map.getSource('b').setTiles(t);
+      map.setPaintProperty('b','raster-opacity',b.dataset.b==='dark'?0.4:0.72);}
+  }});
+document.querySelectorAll('.tw button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.tw button').forEach(x=>x.setAttribute('aria-pressed','false'));
+  b.setAttribute('aria-pressed','true');});
+</script>
+</body>
+</html>
