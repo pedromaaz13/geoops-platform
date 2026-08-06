@@ -8,7 +8,7 @@ endif
 GEOOPS_DATABASE_URL ?= postgresql://geoops:geoops@localhost:5432/geoops_dev
 GEOOPS_TEST_DATABASE_URL ?= $(GEOOPS_DATABASE_URL)
 
-.PHONY: setup dev stop migrate lint typecheck test test-unit test-integration build e2e check docker-check wait-db preflight-dev-ports demo reset-demo
+.PHONY: setup dev stop migrate lint typecheck test test-unit test-integration build e2e check docker-check wait-db preflight-dev-ports demo reset-demo openapi openapi-check
 
 setup:
 	@test -f .env || cp .env.example .env
@@ -95,10 +95,18 @@ build:
 e2e: build
 	pnpm --filter @geoops/web e2e
 
+openapi:
+	uv run python -m geoops_api.openapi_dump
+
+openapi-check: openapi
+	pnpm --filter @geoops/web gen:api
+	git diff --exit-code -- openapi.json apps/web/src/api-types.ts
+
 check:
 	docker compose config >/dev/null
 	$(MAKE) lint
 	$(MAKE) typecheck
+	$(MAKE) openapi-check
 	$(MAKE) test
 	$(MAKE) e2e
 

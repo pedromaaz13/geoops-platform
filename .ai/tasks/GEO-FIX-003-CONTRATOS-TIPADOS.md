@@ -1,8 +1,12 @@
 # GEO-FIX-003 · Contratos tipados y validación de entrada
 
-Estado: previsto, no implementado. Fuente de diseño: `docs/GEOOPS-REVISION-2.md §7`.
-Es la GEO-CORE-004 del plan anterior, adelantada. Desbloquea cliente TS generado,
-`/docs` útil y detección de drift en CI.
+Estado: **implementado** en `geo-fix-003-contratos-tipados` (PR draft). Fuente de
+diseño: `docs/GEOOPS-REVISION-2.md §7`. Es la GEO-CORE-004 del plan anterior,
+adelantada. Desbloquea cliente TS generado, `/docs` útil y detección de drift en CI.
+
+Evidencia de cierre: `services/api/geoops_api/schemas.py` (modelos), `response_model`
+en todas las rutas de `main.py`, `openapi.json` versionado, `make openapi-check`,
+`apps/web/src/api-types.ts` generado, `tests/api/test_contracts.py`.
 
 ## Pregunta que responde
 
