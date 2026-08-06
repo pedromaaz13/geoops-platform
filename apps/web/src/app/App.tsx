@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   Activity,
   Bell,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   DatabaseZap,
   Flame,
   Gauge,
@@ -87,6 +89,23 @@ function initialDetailTab(): DetailTab {
 
 function initialRailCollapsed(): boolean {
   return window.localStorage.getItem('geoops-rail-collapsed') === '1';
+}
+
+const EVENTS_WIDTH_MIN = 280;
+const EVENTS_WIDTH_MAX = 560;
+const EVENTS_WIDTH_DEFAULT = 340;
+
+function clampEventsWidth(value: number): number {
+  return Math.min(EVENTS_WIDTH_MAX, Math.max(EVENTS_WIDTH_MIN, value));
+}
+
+function initialEventsWidth(): number {
+  const stored = Number(window.localStorage.getItem('geoops-events-width'));
+  return Number.isFinite(stored) && stored > 0 ? clampEventsWidth(stored) : EVENTS_WIDTH_DEFAULT;
+}
+
+function initialEventsCollapsed(): boolean {
+  return window.localStorage.getItem('geoops-events-collapsed') === '1';
 }
 
 function initialFilters(): EventFilters {
@@ -211,6 +230,47 @@ export function App() {
   const [search, setSearch] = useState('');
   const [viewportBounds, setViewportBounds] = useState<[number, number, number, number] | null>(null);
   const [focusCoordinates, setFocusCoordinates] = useState<[number, number] | null>(null);
+  const [eventsWidth, setEventsWidth] = useState<number>(initialEventsWidth);
+  const [eventsCollapsed, setEventsCollapsed] = useState<boolean>(initialEventsCollapsed);
+
+  const drawerOpen = activePanel !== 'overview' || toolPanel !== null;
+
+  const closeDrawer = useCallback(() => {
+    setToolPanel(null);
+    setActivePanel('overview');
+  }, []);
+
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeDrawer();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [drawerOpen, closeDrawer]);
+
+  useEffect(() => {
+    window.localStorage.setItem('geoops-events-width', String(eventsWidth));
+  }, [eventsWidth]);
+
+  useEffect(() => {
+    window.localStorage.setItem('geoops-events-collapsed', eventsCollapsed ? '1' : '0');
+  }, [eventsCollapsed]);
+
+  const startEventsResize = useCallback((event: React.PointerEvent) => {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = eventsWidth;
+    const onMove = (move: PointerEvent) => setEventsWidth(clampEventsWidth(startWidth + (startX - move.clientX)));
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      document.body.style.removeProperty('cursor');
+    };
+    document.body.style.cursor = 'ew-resize';
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  }, [eventsWidth]);
 
   const data = useOperationsData(selectedEventId, filters);
   const events = data.events.data?.features ?? emptyEvents;
@@ -292,7 +352,10 @@ export function App() {
       {degradation && <DegradationBanner title={degradation.title} message={degradation.message} tone={degradation.tone} />}
       {data.error && <DegradationBanner title="API no accesible" message={friendlyLoadError(data.error)} tone="bad" />}
 
-      <section className={railCollapsed ? 'operations-grid rail-collapsed' : 'operations-grid'}>
+      <section
+        className={`operations-grid${railCollapsed ? ' rail-collapsed' : ''}${eventsCollapsed ? ' events-collapsed' : ''}`}
+        style={{ '--events-width': `${eventsWidth}px` } as React.CSSProperties}
+      >
         <NavigationRail
           activePanel={activePanel}
           collapsed={railCollapsed}
@@ -310,7 +373,35 @@ export function App() {
           openAlerts={openAlerts.length}
         />
 
-        <section className="map-stage">
+        <div className="map-region">
+          <WorkspaceDrawer
+            activePanel={activePanel}
+            toolPanel={toolPanel}
+            search={search}
+            searchResults={searchResults}
+            sources={sources}
+            summary={data.summary.data}
+            filters={filters}
+            visibleLayers={visibleLayers}
+            basemap={basemap}
+            assets={assets}
+            alerts={alerts}
+            onClose={closeDrawer}
+            onSearch={setSearch}
+            onSelectSearchResult={(result) => {
+              setFocusCoordinates(result.coordinates);
+              if (result.kind === 'event') setSelectedEventId(result.id);
+            }}
+            onFiltersChange={setFilters}
+            onLayersChange={setVisibleLayers}
+            onBasemapChange={setBasemap}
+            onCreateAsset={handleCreateAsset}
+            onDeleteAsset={(assetId) => void data.actions.deleteAsset(assetId)}
+            onCreateRule={handleCreateRule}
+            onAcknowledgeAlert={(alertId) => void data.actions.acknowledgeAlert(alertId)}
+            onResetFilters={() => setFilters(defaultFilters)}
+          />
+          <section className="map-stage">
           <OperationsMap
             events={events}
             assets={assets}
@@ -328,36 +419,6 @@ export function App() {
             onActivePanelChange={setActivePanel}
             onToolChange={setToolPanel}
           />
-          <WorkspaceDrawer
-            activePanel={activePanel}
-            toolPanel={toolPanel}
-            search={search}
-            searchResults={searchResults}
-            sources={sources}
-            summary={data.summary.data}
-            filters={filters}
-            visibleLayers={visibleLayers}
-            basemap={basemap}
-            assets={assets}
-            alerts={alerts}
-            onClose={() => {
-              setToolPanel(null);
-              if (activePanel !== 'overview') setActivePanel('overview');
-            }}
-            onSearch={setSearch}
-            onSelectSearchResult={(result) => {
-              setFocusCoordinates(result.coordinates);
-              if (result.kind === 'event') setSelectedEventId(result.id);
-            }}
-            onFiltersChange={setFilters}
-            onLayersChange={setVisibleLayers}
-            onBasemapChange={setBasemap}
-            onCreateAsset={handleCreateAsset}
-            onDeleteAsset={(assetId) => void data.actions.deleteAsset(assetId)}
-            onCreateRule={handleCreateRule}
-            onAcknowledgeAlert={(alertId) => void data.actions.acknowledgeAlert(alertId)}
-            onResetFilters={() => setFilters(defaultFilters)}
-          />
           <TimelineControl filters={filters} onFiltersChange={setFilters} summary={data.summary.data} />
           <LegendPanel visibleLayers={visibleLayers} />
           <FloatingDetail
@@ -374,7 +435,8 @@ export function App() {
             }}
           />
           {!selectedEvent && <MapSelectionHint eventsCount={events.length} />}
-        </section>
+          </section>
+        </div>
 
         <EventListPanel
           events={visibleEvents}
@@ -382,6 +444,9 @@ export function App() {
           selectedEventId={selectedEventId}
           alerts={alerts}
           impacts={selectedImpacts}
+          collapsed={eventsCollapsed}
+          onToggleCollapse={() => setEventsCollapsed((value) => !value)}
+          onResizeStart={startEventsResize}
           onResetFilters={() => setFilters(defaultFilters)}
           onSelect={(event) => {
             setSelectedEventId(event.properties.id);
@@ -1210,6 +1275,9 @@ function EventListPanel({
   selectedEventId,
   alerts,
   impacts,
+  collapsed,
+  onToggleCollapse,
+  onResizeStart,
   onResetFilters,
   onSelect,
 }: {
@@ -1218,14 +1286,33 @@ function EventListPanel({
   selectedEventId: string | null;
   alerts: AlertDto[];
   impacts: ImpactDto[];
+  collapsed: boolean;
+  onToggleCollapse: () => void;
+  onResizeStart: (event: React.PointerEvent) => void;
   onResetFilters: () => void;
   onSelect: (event: EventFeature) => void;
 }) {
+  if (collapsed) {
+    return (
+      <aside className="event-list-panel collapsed" aria-label="Eventos visibles en mapa">
+        <button className="events-expand" onClick={onToggleCollapse} type="button" aria-label="Mostrar eventos visibles">
+          <ChevronLeft aria-hidden="true" size={16} />
+          <span className="events-expand-count">{events.length}</span>
+        </button>
+      </aside>
+    );
+  }
   return (
     <aside className="event-list-panel" aria-label="Eventos visibles en mapa">
+      <div className="events-resize-handle" onPointerDown={onResizeStart} role="separator" aria-orientation="vertical" aria-label="Redimensionar panel de eventos" />
       <div className="panel-title-row">
         <span>Eventos visibles</span>
-        <strong>{events.length}</strong>
+        <div className="panel-title-actions">
+          <strong>{events.length}</strong>
+          <button className="events-collapse" onClick={onToggleCollapse} type="button" aria-label="Contraer eventos visibles">
+            <ChevronRight aria-hidden="true" size={16} />
+          </button>
+        </div>
       </div>
       <div className="event-scroll">
         {!events.length && (
