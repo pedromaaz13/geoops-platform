@@ -154,6 +154,10 @@ VIZ-002 · Exposición por evento:
   subir calculation_version. Test que lo verifique.
 - Exponerla en las propiedades del evento y en la ficha. Es el titular que
   hace que un evento signifique algo: "118.400 personas, 410 km²".
+- Ahora que la geometría es genérica (GEO-CORE-001): el cálculo de exposición usa
+  ST_Intersects contra la geometría real del evento, no contra un buffer del
+  punto. Un aviso AEMET poligonal debe dar su población exacta por zona, no una
+  aproximación circular.
 
 No incluye: pintar la malla en el mapa (eso es VIZ-004), deck.gl, cambiar
 el cálculo de Impact contra activos del cliente.

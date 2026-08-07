@@ -49,3 +49,9 @@ columnas generadas, el normalizador y el adaptador escriben solo `geometry`.
   regeneran.
 - Falta la autenticación real (usuarios, RLS): queda para `GEO-PROD-001`. Hasta
   entonces la organización es fija por entorno.
+- **La migración es de ida en cuanto exista el primer polígono real.** El
+  `downgrade()` revierte la geometría a `POINT` con `ST_Force2D`, lo que solo es
+  correcto si toda la geometría es puntual (caso `make demo`). En cuanto una fuente
+  poligonal (AEMET, perímetros) haya escrito áreas o líneas, ese `downgrade`
+  perdería datos: se debe tratar como no reversible y no ejecutarse sobre una base
+  con geometría no puntual.
