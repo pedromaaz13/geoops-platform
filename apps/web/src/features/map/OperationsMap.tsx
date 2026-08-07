@@ -1,8 +1,24 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl';
+import type { ExpressionSpecification, GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl';
 
 import { layerRegistry, type LayerId } from '../../registries/layers';
 import type { AssetDto, EventFeature, ImpactDto } from '../../types';
+
+// Paleta de severidad reutilizada por punto, área y línea: evita duplicar
+// literales de color al añadir las capas fill/line (cero hex nuevo).
+const eventSeverityColor: ExpressionSpecification = [
+  'match',
+  ['get', 'severity'],
+  'extrema',
+  '#E7354F',
+  'alta',
+  '#FF5C35',
+  'media',
+  '#FF9E2C',
+  'baja',
+  '#FFD24A',
+  '#718398',
+];
 
 interface OperationsMapProps {
   events: EventFeature[];
@@ -52,7 +68,7 @@ function impactsCollection(events: EventFeature[], assets: AssetDto[], impacts: 
           type: 'Feature' as const,
           geometry: {
             type: 'LineString' as const,
-            coordinates: [event.geometry.coordinates, [asset.longitude, asset.latitude]],
+            coordinates: [event.properties.representative_point.coordinates, [asset.longitude, asset.latitude]],
           },
           properties: {
             id: impact.id,
@@ -113,7 +129,7 @@ export function OperationsMap({
 
         const map = new maplibregl.Map({
           container: containerRef.current,
-          center: events[0]?.geometry.coordinates ?? [-3.7, 40.4],
+          center: events[0]?.properties.representative_point.coordinates ?? [-3.7, 40.4],
           zoom: events.length ? 6 : 4,
           attributionControl: { compact: true },
           style: {
@@ -201,24 +217,37 @@ export function OperationsMap({
                 },
               },
               {
+                // Eventos con área (polígono): un evento no puntual no debe desaparecer.
+                id: 'event-areas',
+                type: 'fill',
+                source: 'events',
+                filter: ['match', ['geometry-type'], ['Polygon', 'MultiPolygon'], true, false],
+                paint: {
+                  'fill-color': eventSeverityColor,
+                  'fill-opacity': 0.22,
+                  'fill-outline-color': eventSeverityColor,
+                },
+              },
+              {
+                // Eventos lineales (cortes, tramos): línea con el color de severidad.
+                id: 'event-lines',
+                type: 'line',
+                source: 'events',
+                filter: ['match', ['geometry-type'], ['LineString', 'MultiLineString'], true, false],
+                paint: {
+                  'line-color': eventSeverityColor,
+                  'line-width': ['interpolate', ['linear'], ['zoom'], 4, 1.6, 10, 3.4],
+                  'line-opacity': 0.9,
+                },
+              },
+              {
                 id: 'events',
                 type: 'circle',
                 source: 'events',
+                filter: ['match', ['geometry-type'], ['Point', 'MultiPoint'], true, false],
                 paint: {
                   'circle-radius': ['case', ['boolean', ['get', 'selected'], false], 11, 7],
-                  'circle-color': [
-                    'match',
-                    ['get', 'severity'],
-                    'extrema',
-                    '#E7354F',
-                    'alta',
-                    '#FF5C35',
-                    'media',
-                    '#FF9E2C',
-                    'baja',
-                    '#FFD24A',
-                    '#718398',
-                  ],
+                  'circle-color': eventSeverityColor,
                   'circle-stroke-color': ['case', ['boolean', ['get', 'selected'], false], '#F2F6FA', '#07101A'],
                   'circle-stroke-width': ['case', ['boolean', ['get', 'selected'], false], 3, 1.5],
                 },
@@ -266,8 +295,8 @@ export function OperationsMap({
           }
           setMapStatus('Mapa operativo');
           if (events.length > 1) {
-            const bounds = new maplibregl.LngLatBounds(events[0].geometry.coordinates, events[0].geometry.coordinates);
-            events.slice(1).forEach((event) => bounds.extend(event.geometry.coordinates));
+            const bounds = new maplibregl.LngLatBounds(events[0].properties.representative_point.coordinates, events[0].properties.representative_point.coordinates);
+            events.slice(1).forEach((event) => bounds.extend(event.properties.representative_point.coordinates));
             map.fitBounds(bounds, { padding: 72, maxZoom: 8, duration: 0 });
           }
         });
@@ -344,8 +373,8 @@ export function OperationsMap({
             className={event.properties.id === selectedEventId ? 'fallback-event selected' : 'fallback-event'}
             key={event.properties.id}
             style={{
-              left: `${((event.geometry.coordinates[0] + 10) / 14) * 100}%`,
-              top: `${(1 - (event.geometry.coordinates[1] - 35) / 8) * 100}%`,
+              left: `${((event.properties.representative_point.coordinates[0] + 10) / 14) * 100}%`,
+              top: `${(1 - (event.properties.representative_point.coordinates[1] - 35) / 8) * 100}%`,
             }}
           />
         ))}

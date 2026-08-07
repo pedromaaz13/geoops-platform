@@ -9,7 +9,7 @@ from typing import Any, cast
 from uuid import uuid4
 
 from geoalchemy2.shape import from_shape
-from shapely.geometry import Point
+from shapely.geometry import Point, shape
 from sqlalchemy import ColumnElement, and_, delete, func, or_, select
 from sqlalchemy.orm import Session
 
@@ -70,6 +70,10 @@ def _event_feature(session: Session, event: Event) -> dict[str, Any]:
             "updated_at": iso_utc(event.updated_at),
             "sources": sources,
             "attributes": event.attributes,
+            # Derivados de la geometría (GENERATED): el front usa el punto
+            # representativo para cámara/etiquetas aunque la geometría sea un área.
+            "geometry_kind": event.geometry_kind,
+            "representative_point": _geometry_json(session, event.representative_point),
         },
     }
 
@@ -258,10 +262,15 @@ def _manifest_operational_state(session: Session) -> dict[str, Any]:
     }
 
 
-def operations_summary(session: Session) -> dict[str, Any]:
+def operations_summary(session: Session, organization_id: str) -> dict[str, Any]:
+    # Los eventos son públicos; activos, alertas e impactos se cuentan por organización.
     events = session.scalars(select(Event)).all()
-    open_alerts = session.scalars(select(Alert).where(Alert.status == "open")).all()
-    impacted_event_ids = set(session.scalars(select(Impact.event_id)).all())
+    open_alerts = session.scalars(
+        select(Alert).where(Alert.status == "open", Alert.organization_id == organization_id)
+    ).all()
+    impacted_event_ids = set(
+        session.scalars(select(Impact.event_id).where(Impact.organization_id == organization_id)).all()
+    )
     sources = list_source_health(session)
     latest_observed = max((event.last_observed_at for event in events if event.last_observed_at), default=None)
     latest_updated = max((event.updated_at for event in events if event.updated_at), default=None)
@@ -285,7 +294,10 @@ def operations_summary(session: Session) -> dict[str, Any]:
         ),
         "events_with_impact": len(impacted_event_ids),
         "open_alerts": len(open_alerts),
-        "assets_total": session.scalar(select(func.count()).select_from(Asset)) or 0,
+        "assets_total": session.scalar(
+            select(func.count()).select_from(Asset).where(Asset.organization_id == organization_id)
+        )
+        or 0,
         "sources_total": len(sources),
         "sources_degraded": degraded_sources,
         "source_health": {
@@ -536,12 +548,15 @@ def list_source_runs(session: Session) -> list[dict[str, Any]]:
 
 
 def _asset_dict(session: Session, asset: Asset) -> dict[str, Any]:
-    geom = _geometry_json(session, asset.geometry)
-    lon, lat = geom["coordinates"]
+    # lon/lat salen del punto representativo (válido también para línea/polígono).
+    point = _geometry_json(session, asset.representative_point)
+    lon, lat = point["coordinates"]
     return {
         "id": asset.id,
+        "organization_id": asset.organization_id,
         "name": asset.name,
         "asset_type": asset.asset_type,
+        "geometry_kind": asset.geometry_kind,
         "longitude": lon,
         "latitude": lat,
         "criticality": asset.criticality,
@@ -550,43 +565,67 @@ def _asset_dict(session: Session, asset: Asset) -> dict[str, Any]:
     }
 
 
-def create_asset(session: Session, payload: dict[str, Any]) -> dict[str, Any]:
+def _asset_geometry(payload: dict[str, Any]) -> Any:
+    # El activo acepta geometría GeoJSON genérica (línea/polígono) o un punto por
+    # longitude/latitude. Debe venir exactamente una de las dos formas.
+    geojson = payload.get("geometry")
+    if geojson is not None:
+        return from_shape(shape(geojson), srid=4326)
+    if payload.get("longitude") is None or payload.get("latitude") is None:
+        raise ValueError("asset needs geometry or longitude/latitude")
     lon = float(payload["longitude"])
     lat = float(payload["latitude"])
     if not (-180 <= lon <= 180 and -90 <= lat <= 90):
         raise ValueError("longitude/latitude out of range")
+    return from_shape(Point(lon, lat), srid=4326)
+
+
+def create_asset(session: Session, payload: dict[str, Any], organization_id: str) -> dict[str, Any]:
     asset = Asset(
         id=str(uuid4()),
+        organization_id=organization_id,
         name=str(payload["name"]),
         asset_type=str(payload.get("asset_type") or "site"),
-        geometry=from_shape(Point(lon, lat), srid=4326),
+        geometry=_asset_geometry(payload),
         criticality=str(payload.get("criticality") or "normal"),
         created_at=now_utc(),
         updated_at=now_utc(),
     )
     session.add(asset)
     session.flush()
-    recalculate_impacts(session)
-    evaluate_alerts(session)
+    recalculate_impacts(session, organization_id)
+    evaluate_alerts(session, organization_id)
     session.commit()
     return _asset_dict(session, asset)
 
 
-def list_assets(session: Session) -> list[dict[str, Any]]:
-    return [_asset_dict(session, asset) for asset in session.scalars(select(Asset).order_by(Asset.name)).all()]
+def list_assets(session: Session, organization_id: str) -> list[dict[str, Any]]:
+    return [
+        _asset_dict(session, asset)
+        for asset in session.scalars(
+            select(Asset).where(Asset.organization_id == organization_id).order_by(Asset.name)
+        ).all()
+    ]
 
 
-def delete_asset(session: Session, asset_id: str) -> None:
+def delete_asset(session: Session, asset_id: str, organization_id: str) -> bool:
+    # Solo se borra si el activo pertenece a la organización activa.
+    asset = session.scalar(
+        select(Asset).where(Asset.id == asset_id, Asset.organization_id == organization_id)
+    )
+    if asset is None:
+        return False
     session.execute(delete(Alert).where(Alert.asset_id == asset_id))
     session.execute(delete(AlertRule).where(AlertRule.asset_id == asset_id))
     session.execute(delete(Impact).where(Impact.asset_id == asset_id))
     session.execute(delete(Asset).where(Asset.id == asset_id))
     session.commit()
+    return True
 
 
-def recalculate_impacts(session: Session) -> int:
+def recalculate_impacts(session: Session, organization_id: str) -> int:
     events = session.scalars(select(Event)).all()
-    assets = session.scalars(select(Asset)).all()
+    assets = session.scalars(select(Asset).where(Asset.organization_id == organization_id)).all()
     changed = 0
     for event in events:
         for asset in assets:
@@ -617,6 +656,7 @@ def recalculate_impacts(session: Session) -> int:
             if impact is None:
                 impact = Impact(
                     id=str(uuid4()),
+                    organization_id=organization_id,
                     event_id=event.id,
                     asset_id=asset.id,
                     impact_type="proximity",
@@ -639,13 +679,16 @@ def recalculate_impacts(session: Session) -> int:
     return changed
 
 
-def list_event_impacts(session: Session, event_id: str) -> list[dict[str, Any]]:
+def list_event_impacts(session: Session, event_id: str, organization_id: str) -> list[dict[str, Any]]:
     rows = session.execute(
-        select(Impact, Asset).join(Asset, Asset.id == Impact.asset_id).where(Impact.event_id == event_id)
+        select(Impact, Asset)
+        .join(Asset, Asset.id == Impact.asset_id)
+        .where(Impact.event_id == event_id, Impact.organization_id == organization_id)
     ).all()
     return [
         {
             "id": impact.id,
+            "organization_id": impact.organization_id,
             "event_id": impact.event_id,
             "asset_id": impact.asset_id,
             "asset_name": asset.name,
@@ -661,13 +704,21 @@ def list_event_impacts(session: Session, event_id: str) -> list[dict[str, Any]]:
     ]
 
 
-def create_alert_rule(session: Session, payload: dict[str, Any]) -> dict[str, Any]:
+def create_alert_rule(session: Session, payload: dict[str, Any], organization_id: str) -> dict[str, Any]:
+    asset_id = str(payload["asset_id"])
+    # La regla solo puede apuntar a un activo de la propia organización.
+    owned = session.scalar(
+        select(Asset.id).where(Asset.id == asset_id, Asset.organization_id == organization_id)
+    )
+    if owned is None:
+        raise ValueError("asset_id not found in organization")
     rule = AlertRule(
         id=str(uuid4()),
+        organization_id=organization_id,
         name=str(payload["name"]),
         enabled=bool(payload.get("enabled", True)),
         event_type=str(payload.get("event_type") or "wildfire"),
-        asset_id=str(payload["asset_id"]),
+        asset_id=asset_id,
         distance_threshold_m=float(payload["distance_threshold_m"]),
         cooldown_minutes=int(payload.get("cooldown_minutes") or 0),
         created_at=now_utc(),
@@ -675,7 +726,7 @@ def create_alert_rule(session: Session, payload: dict[str, Any]) -> dict[str, An
     )
     session.add(rule)
     session.flush()
-    evaluate_alerts(session)
+    evaluate_alerts(session, organization_id)
     session.commit()
     return _rule_dict(rule)
 
@@ -683,6 +734,7 @@ def create_alert_rule(session: Session, payload: dict[str, Any]) -> dict[str, An
 def _rule_dict(rule: AlertRule) -> dict[str, Any]:
     return {
         "id": rule.id,
+        "organization_id": rule.organization_id,
         "name": rule.name,
         "enabled": rule.enabled,
         "event_type": rule.event_type,
@@ -694,13 +746,22 @@ def _rule_dict(rule: AlertRule) -> dict[str, Any]:
     }
 
 
-def list_alert_rules(session: Session) -> list[dict[str, Any]]:
-    return [_rule_dict(rule) for rule in session.scalars(select(AlertRule).order_by(AlertRule.created_at)).all()]
+def list_alert_rules(session: Session, organization_id: str) -> list[dict[str, Any]]:
+    return [
+        _rule_dict(rule)
+        for rule in session.scalars(
+            select(AlertRule).where(AlertRule.organization_id == organization_id).order_by(AlertRule.created_at)
+        ).all()
+    ]
 
 
-def evaluate_alerts(session: Session) -> int:
+def evaluate_alerts(session: Session, organization_id: str) -> int:
     created = 0
-    rules = session.scalars(select(AlertRule).where(AlertRule.enabled.is_(True))).all()
+    rules = session.scalars(
+        select(AlertRule).where(
+            AlertRule.organization_id == organization_id, AlertRule.enabled.is_(True)
+        )
+    ).all()
     for rule in rules:
         rows = session.execute(
             select(Impact, Event, Asset)
@@ -722,6 +783,7 @@ def evaluate_alerts(session: Session) -> int:
                 continue
             alert = Alert(
                 id=str(uuid4()),
+                organization_id=organization_id,
                 rule_id=rule.id,
                 event_id=event.id,
                 asset_id=asset.id,
@@ -742,17 +804,19 @@ def evaluate_alerts(session: Session) -> int:
     return created
 
 
-def list_alerts(session: Session) -> list[dict[str, Any]]:
+def list_alerts(session: Session, organization_id: str) -> list[dict[str, Any]]:
     rows = session.execute(
         select(Alert, Event, Asset, Impact)
         .join(Event, Event.id == Alert.event_id)
         .join(Asset, Asset.id == Alert.asset_id)
         .join(Impact, Impact.id == Alert.impact_id)
+        .where(Alert.organization_id == organization_id)
         .order_by(Alert.created_at.desc())
     ).all()
     return [
         {
             "id": alert.id,
+            "organization_id": alert.organization_id,
             "rule_id": alert.rule_id,
             "event_id": alert.event_id,
             "event_title": event.title,
@@ -771,11 +835,13 @@ def list_alerts(session: Session) -> list[dict[str, Any]]:
     ]
 
 
-def acknowledge_alert(session: Session, alert_id: str) -> dict[str, Any] | None:
-    alert = session.get(Alert, alert_id)
+def acknowledge_alert(session: Session, alert_id: str, organization_id: str) -> dict[str, Any] | None:
+    alert = session.scalar(
+        select(Alert).where(Alert.id == alert_id, Alert.organization_id == organization_id)
+    )
     if alert is None:
         return None
     alert.status = "acknowledged"
     alert.acknowledged_at = now_utc()
     session.commit()
-    return next(item for item in list_alerts(session) if item["id"] == alert_id)
+    return next(item for item in list_alerts(session, organization_id) if item["id"] == alert_id)

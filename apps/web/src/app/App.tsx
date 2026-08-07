@@ -133,7 +133,7 @@ function initialLayers(): Record<LayerId, boolean> {
 function pointInside(bounds: [number, number, number, number] | null, event: EventFeature): boolean {
   if (!bounds) return true;
   const [west, south, east, north] = bounds;
-  const [lon, lat] = event.geometry.coordinates;
+  const [lon, lat] = event.properties.representative_point.coordinates;
   return lon >= west && lon <= east && lat >= south && lat <= north;
 }
 
@@ -294,7 +294,7 @@ export function App() {
 
   useEffect(() => {
     if (!selectedEvent) return;
-    const timeout = window.setTimeout(() => setFocusCoordinates(selectedEvent.geometry.coordinates), 0);
+    const timeout = window.setTimeout(() => setFocusCoordinates(selectedEvent.properties.representative_point.coordinates), 0);
     return () => window.clearTimeout(timeout);
   }, [selectedEvent]);
 
@@ -334,7 +334,7 @@ export function App() {
     const eventResults = events
       .filter((event) => `${event.properties.title} ${event.properties.summary ?? ''}`.toLocaleLowerCase('es').includes(q))
       .slice(0, 5)
-      .map((event) => ({ id: event.properties.id, kind: 'event' as const, label: event.properties.title, coordinates: event.geometry.coordinates }));
+      .map((event) => ({ id: event.properties.id, kind: 'event' as const, label: event.properties.title, coordinates: event.properties.representative_point.coordinates }));
     const assetResults = assets
       .filter((asset) => `${asset.name} ${asset.asset_type}`.toLocaleLowerCase('es').includes(q))
       .slice(0, 5)
@@ -454,7 +454,7 @@ export function App() {
           onResetFilters={() => setFilters(defaultFilters)}
           onSelect={(event) => {
             setSelectedEventId(event.properties.id);
-            setFocusCoordinates(event.geometry.coordinates);
+            setFocusCoordinates(event.properties.representative_point.coordinates);
           }}
         />
       </section>

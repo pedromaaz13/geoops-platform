@@ -4,9 +4,14 @@
 
 La migración `0001_mvp_core` materializa el núcleo mínimo: `Source`,
 `SourceRun`, `RawPayload`, `Observation`, `Event`, `EventObservation`,
-`EventRevision`, `Asset`, `Impact`, `AlertRule` y `Alert`. Las geometrías
-puntuales viven en PostGIS con SRID 4326. No existen todavía organizaciones,
-usuarios, casos, canales externos ni modelos de otros tipos de evento.
+`EventRevision`, `Asset`, `Impact`, `AlertRule` y `Alert`.
+
+Desde `GEO-CORE-001` (migración `0002`, ver `docs/adr/ADR-004`): la geometría de
+`Event`, `Observation` y `Asset` es genérica `GEOMETRY(4326)` (point/line/area) con
+`CHECK` de SRID y dos columnas generadas `geometry_kind` y `representative_point`.
+Existe `Organization` y `organization_id` en `Asset`, `AlertRule`, `Alert` e
+`Impact`, fijado por entorno. Aún no hay usuarios, autenticación (auth es
+`GEO-PROD-001`), casos ni canales externos.
 
 ---
 

@@ -8,6 +8,7 @@ import tempfile
 from collections.abc import Sequence
 from pathlib import Path
 
+from geoops_api.config import get_settings
 from geoops_api.db import create_session_factory
 from geoops_api.models import AlertRule, RawPayload
 from geoops_api.operations import create_alert_rule, create_asset, list_assets, list_events
@@ -102,8 +103,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             if not events["features"]:
                 raise SystemExit("No wildfire events available. Run wildfire-public ingestion first.")
-            coords = events["features"][0]["geometry"]["coordinates"]
-            assets = list_assets(session)
+            organization_id = get_settings().organization_id
+            # Punto representativo: robusto aunque el evento no sea puntual.
+            coords = events["features"][0]["properties"]["representative_point"]["coordinates"]
+            assets = list_assets(session, organization_id)
             if not assets:
                 asset = create_asset(
                     session,
@@ -114,6 +117,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         "latitude": coords[1] + 0.01,
                         "criticality": "high",
                     },
+                    organization_id,
                 )
             else:
                 asset = assets[0]
@@ -134,6 +138,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         "distance_threshold_m": 50000,
                         "cooldown_minutes": 0,
                     },
+                    organization_id,
                 )
             else:
                 rule = {

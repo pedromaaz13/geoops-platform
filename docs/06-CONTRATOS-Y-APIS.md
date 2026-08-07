@@ -195,6 +195,12 @@ Para listados:
 
 Las geometrías pesadas pueden servirse en endpoint separado o teselas.
 
+Desde `GEO-CORE-001`: la `geometry` del evento es GeoJSON genérico
+(Point/LineString/Polygon/Multi\*); las propiedades incluyen `geometry_kind` y
+`representative_point` (un Point para cámara/etiquetas). Los recursos con dueño
+(`assets`, `alert_rules`, `alerts`, `impacts`) exponen `organization_id` y se
+filtran por la organización activa (`GEOOPS_ORGANIZATION_ID`).
+
 Desde `GEO-FIX-001`: `meta.partial` es `true` cuando la página no contiene todos
 los eventos que casan los filtros, y `meta.total_matched` trae el conteo real. El
 orden es estable por `(last_observed_at DESC NULLS LAST, id ASC)` y `next_cursor`

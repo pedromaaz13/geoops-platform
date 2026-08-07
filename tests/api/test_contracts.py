@@ -63,12 +63,12 @@ def test_committed_openapi_matches_app() -> None:
     assert actual == expected, "openapi.json is stale; run `make openapi` and commit"
 
 
-def test_invalid_asset_body_names_the_missing_field() -> None:
-    response = asyncio.run(_post(_test_app(), "/v1/assets", {"name": "x", "longitude": 1.0}))
+def test_asset_body_without_geometry_or_coordinates_is_rejected() -> None:
+    # Desde GEO-CORE-001 el activo acepta geometry GeoJSON o longitude/latitude;
+    # no aportar ninguna de las dos es un 400 de negocio.
+    response = asyncio.run(_post(_test_app(), "/v1/assets", {"name": "x"}))
     assert response.status_code == 400
-    body = response.json()["error"]
-    assert body["code"] == "INVALID_REQUEST"
-    assert "latitude" in body["details"]
+    assert response.json()["error"]["code"] == "INVALID_REQUEST"
 
 
 def test_invalid_alert_rule_body_names_the_missing_field() -> None:
